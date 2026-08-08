@@ -1,0 +1,1870 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FOM · Katalog ve Ziyaret Defteri</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --paper:#FBFAF7; --surface:#FFFFFF; --ink:#16233D; --ink-soft:#5A6478;
+  --line:#E5E2DA; --line-soft:#F0EEE8; --accent:#0F6B5C; --accent-ink:#0A4A40;
+  --warn:#B4462F;
+  --lv0:#E0952F; --lv12:#C9524A; --lv34:#3C74A8; --lv56:#0F6B5C; --lv78:#6B4E9C; --lv9:#4A4A52;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"Public Sans",ui-sans-serif,system-ui,-apple-system,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  --r:10px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:var(--body); background:var(--paper); color:var(--ink);
+  line-height:1.5; -webkit-font-smoothing:antialiased;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:none}
+:focus-visible{outline:2.5px solid var(--accent);outline-offset:2px;border-radius:4px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- giriş ---------- */
+.gate{min-height:100dvh;display:grid;place-items:center;padding:24px}
+.gate-card{width:100%;max-width:380px;text-align:center}
+.mark{font-family:var(--display);font-weight:800;font-size:64px;letter-spacing:-.045em;line-height:.9}
+.mark span{color:var(--accent)}
+.gate-sub{font-size:14px;color:var(--ink-soft);margin:10px 0 36px}
+.who{display:grid;gap:10px}
+.who button{
+  padding:16px;border:1.5px solid var(--line);border-radius:var(--r);background:var(--surface);
+  font-weight:600;font-size:16px;text-align:left;display:flex;align-items:center;gap:12px;
+  transition:border-color .15s,transform .1s;
+}
+.who button:hover{border-color:var(--accent)}
+.who button:active{transform:scale(.985)}
+.who i{
+  width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;
+  display:grid;place-items:center;font-style:normal;font-weight:700;font-size:14px;flex:none;
+}
+
+/* ---------- kabuk ---------- */
+.shell{display:none;max-width:940px;margin:0 auto;padding:0 16px}
+.shell.on{display:block}
+.top{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 0 12px;border-bottom:1px solid var(--line);
+}
+.top .mark{font-size:24px}
+.me{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-soft)}
+.me b{color:var(--ink);font-weight:600}
+.me button{font-size:13px;color:var(--ink-soft);text-decoration:underline;text-underline-offset:3px}
+
+nav{display:flex;gap:2px;padding:10px 0;position:sticky;top:0;background:var(--paper);z-index:20}
+nav button{
+  padding:8px 14px;border-radius:100px;font-weight:600;font-size:14px;color:var(--ink-soft);
+  transition:background .15s,color .15s;
+}
+nav button:hover{background:var(--line-soft)}
+nav button[aria-current="page"]{background:var(--ink);color:#fff}
+
+main{padding:8px 0 64px}
+.view{display:none}
+.view.on{display:block}
+
+h2{font-family:var(--display);font-weight:700;font-size:26px;letter-spacing:-.02em;margin-bottom:2px}
+.lede{font-size:14px;color:var(--ink-soft);margin-bottom:20px}
+
+/* ---------- arama + filtre ---------- */
+.search{position:relative;margin-bottom:14px}
+.search input{
+  width:100%;padding:14px 16px 14px 44px;border:1.5px solid var(--line);border-radius:var(--r);
+  background:var(--surface);font-size:16px;
+}
+.search input:focus{border-color:var(--accent);outline:none}
+.search svg{position:absolute;left:15px;top:50%;transform:translateY(-50%);color:var(--ink-soft)}
+.search .clr{position:absolute;right:8px;top:50%;transform:translateY(-50%);padding:8px;color:var(--ink-soft);font-size:18px;display:none}
+.search .clr.on{display:block}
+
+.frow{margin-bottom:12px}
+.flabel{
+  font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-soft);margin-bottom:7px;
+}
+.ladder{display:flex;flex-wrap:wrap;gap:5px}
+.ladder button{
+  padding:7px 11px;border:1.5px solid var(--line);border-radius:7px;background:var(--surface);
+  font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;
+  transition:border-color .12s,background .12s,color .12s;
+}
+.ladder button:hover{border-color:var(--ink-soft)}
+.ladder button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+select.tur{
+  width:100%;padding:11px 12px;border:1.5px solid var(--line);border-radius:var(--r);
+  background:var(--surface);font-size:15px;
+}
+.count{
+  font-size:13px;color:var(--ink-soft);padding:14px 0 10px;
+  border-top:1px solid var(--line-soft);margin-top:14px;
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+}
+.count b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.count button{font-size:13px;color:var(--accent);font-weight:600}
+
+/* ---------- kitap kartı ---------- */
+.books{display:grid;gap:9px}
+.book{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  padding:13px 15px 13px 17px;position:relative;overflow:hidden;
+}
+.book::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--bar,var(--line))}
+.book h3{font-family:var(--display);font-weight:700;font-size:16px;letter-spacing:-.012em;line-height:1.25}
+.book .meta{font-size:13px;color:var(--ink-soft);margin-top:3px}
+.book .foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:11px}
+.barcode{font-family:var(--mono);font-size:11.5px;color:var(--ink-soft);letter-spacing:.02em}
+.price{font-weight:700;font-size:15px;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* ---------- kademeli seçim ---------- */
+.cascade{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.step{position:relative}
+.step .f{margin:0}
+.stepno{
+  position:absolute;right:0;top:0;font-family:var(--display);font-weight:800;font-size:11px;
+  color:var(--ink-soft);background:var(--line-soft);width:17px;height:17px;border-radius:50%;
+  display:grid;place-items:center;
+}
+.step select:disabled{background:var(--line-soft);color:var(--ink-soft);cursor:not-allowed}
+
+/* ---------- künye ---------- */
+.kunye{
+  background:var(--surface);border:1.5px solid var(--ink);border-radius:var(--r);
+  padding:17px 19px;margin-bottom:6px;position:relative;overflow:hidden;
+}
+.kunye::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--bar)}
+.kunye .kh{font-family:var(--display);font-weight:700;font-size:19px;letter-spacing:-.015em;line-height:1.2;padding-right:8px}
+.kunye .ka{font-size:14px;color:var(--ink-soft);margin-top:4px}
+.kunye dl{
+  display:grid;grid-template-columns:auto 1fr;gap:8px 16px;margin-top:15px;
+  padding-top:14px;border-top:1px solid var(--line-soft);font-size:14.5px;
+}
+.kunye dt{
+  font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-soft);align-self:center;white-space:nowrap;
+}
+.kunye dd{font-weight:600;font-variant-numeric:tabular-nums}
+.kunye dd.mono{font-family:var(--mono);font-weight:500;font-size:13.5px;letter-spacing:.02em}
+
+/* ---------- tikli açılır liste ---------- */
+.acilir{
+  width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;
+  background:var(--surface);font-size:15px;text-align:left;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+}
+.acilir:hover{border-color:var(--ink-soft)}
+.acilir .ok{color:var(--ink-soft);flex:none}
+.acilir-panel{
+  border:1.5px solid var(--accent);border-radius:8px;padding:11px;margin-top:7px;background:var(--surface);
+}
+.acilir-panel input,.acilir-panel select{font-size:14.5px;padding:9px 11px}
+.tikli{max-height:220px;overflow-y:auto;margin-top:9px;border-top:1px solid var(--line-soft)}
+.tikli label{
+  display:flex;align-items:flex-start;gap:9px;padding:8px 4px;font-weight:400;font-size:14px;
+  border-bottom:1px solid var(--line-soft);margin:0;cursor:pointer;
+}
+.tikli label:last-child{border-bottom:none}
+.tikli label:hover{background:var(--line-soft)}
+.tikli input{width:auto;margin:2px 0 0;flex:none;padding:0}
+.tikli .s{color:var(--ink-soft);font-size:12.5px;display:block;margin-top:1px}
+.tikli .yok{padding:18px 4px;text-align:center;color:var(--ink-soft);font-size:13.5px}
+.yildiz{
+  display:inline-block;margin-left:6px;padding:2px 4px;font-size:13px;line-height:1;
+  color:#B8860B;background:none;border:none;cursor:pointer;vertical-align:middle;
+}
+.yildiz:hover{color:#8A6508}
+.panel-alt{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding-top:10px;margin-top:9px;border-top:1px solid var(--line);
+  font-size:13px;color:var(--ink-soft);
+}
+
+/* ---------- seviye bandı — imza öğe ---------- */
+.span{display:flex;align-items:center;gap:9px;margin-top:9px}
+.track{display:flex;gap:2px;flex:none}
+.track i{width:11px;height:6px;border-radius:1.5px;background:var(--line);display:block}
+.track i.f{background:var(--bar)}
+.span small{font-size:12px;color:var(--ink-soft);font-weight:500}
+
+/* ---------- boş durum ---------- */
+.empty{
+  text-align:center;padding:52px 20px;border:1.5px dashed var(--line);border-radius:var(--r);
+  color:var(--ink-soft);
+}
+.empty p{font-size:14px}
+.empty b{display:block;font-family:var(--display);font-size:17px;color:var(--ink);margin-bottom:5px;font-weight:700}
+
+/* ---------- form ---------- */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-bottom:18px}
+.panel h3{font-family:var(--display);font-size:18px;font-weight:700;margin-bottom:14px}
+.f{margin-bottom:13px}
+.f label{display:block;font-size:13px;font-weight:600;margin-bottom:5px}
+.f input,.f select,.f textarea{
+  width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;
+  background:var(--surface);font-size:15px;
+}
+.f textarea{min-height:82px;resize:vertical}
+.f input:focus,.f select:focus,.f textarea:focus{border-color:var(--accent);outline:none}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.checks{display:flex;flex-wrap:wrap;gap:14px;padding-top:2px}
+.checks label{display:flex;align-items:center;gap:6px;font-weight:500;font-size:14px;margin:0}
+.checks input{width:auto;padding:0}
+.acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.btn{
+  padding:10px 18px;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;font-size:15px;
+  transition:background .15s;
+}
+.btn:hover{background:var(--accent-ink)}
+.btn.ghost{background:none;color:var(--ink-soft);border:1.5px solid var(--line)}
+.btn.ghost:hover{background:var(--line-soft);color:var(--ink)}
+.btn.sm{padding:7px 13px;font-size:13.5px}
+.btn.link{background:none;color:var(--warn);padding:7px 0;font-size:13.5px}
+.btn.link:hover{background:none;text-decoration:underline}
+
+/* ---------- kayıt listesi ---------- */
+.rec{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:15px;margin-bottom:9px}
+.rec-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.rec h4{font-family:var(--display);font-size:17px;font-weight:700;letter-spacing:-.012em}
+.tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+.tag{
+  font-size:11.5px;font-weight:600;padding:3px 8px;border-radius:5px;
+  background:var(--line-soft);color:var(--ink-soft);
+}
+.tag.g{background:#E7F1EE;color:var(--accent-ink)}
+.tag.o{background:#FBF0E2;color:#8A5A15}
+.rec dl{margin-top:11px;font-size:14px;display:grid;grid-template-columns:auto 1fr;gap:4px 12px}
+.rec dt{color:var(--ink-soft)}
+.rec .note{
+  margin-top:11px;padding:11px 13px;background:var(--paper);border-radius:7px;
+  font-size:14px;white-space:pre-wrap;border-left:2.5px solid var(--line);
+}
+.sub{margin-top:13px;padding-top:13px;border-top:1px solid var(--line-soft)}
+.sub-h{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:8px}
+.person{
+  display:flex;justify-content:space-between;align-items:flex-start;gap:10px;
+  padding:9px 0;border-bottom:1px solid var(--line-soft);font-size:14px;
+}
+.person:last-of-type{border-bottom:none}
+.person b{font-weight:600}
+.person .d{color:var(--ink-soft);font-size:13px;margin-top:1px}
+.req{color:var(--warn);font-weight:700}
+
+/* rapor satırları */
+.rapor-satir{
+  display:grid;grid-template-columns:1.3fr 1fr auto;gap:4px 14px;align-items:center;
+  padding:9px 4px;border-bottom:1px solid var(--line-soft);font-size:14px;
+}
+.rapor-satir:last-child{border-bottom:none}
+.rs-kitap{font-weight:600}
+.rs-okul{color:var(--ink-soft)}
+.rs-tarih{color:var(--ink-soft);font-size:12.5px;white-space:nowrap}
+@media(max-width:600px){
+  .rapor-satir{grid-template-columns:1fr}
+}
+
+/* seçilen kitap fişleri */
+.picked{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.chip{
+  display:inline-flex;align-items:center;gap:7px;padding:5px 8px 5px 10px;border-radius:6px;
+  background:var(--line-soft);font-size:13px;font-weight:500;
+}
+.chip button{color:var(--ink-soft);font-size:15px;line-height:1;padding:0 2px}
+.picker{max-height:190px;overflow-y:auto;border:1.5px solid var(--line);border-radius:8px;margin-top:7px}
+.picker button{
+  display:block;width:100%;text-align:left;padding:9px 12px;font-size:14px;
+  border-bottom:1px solid var(--line-soft);
+}
+.picker button:last-child{border-bottom:none}
+.picker button:hover{background:var(--line-soft)}
+.picker .s{color:var(--ink-soft);font-size:12.5px}
+
+.note-bar{
+  font-size:12.5px;color:var(--ink-soft);background:#FBF6EA;border:1px solid #EDE0C4;
+  padding:10px 13px;border-radius:8px;margin-bottom:18px;line-height:1.45;
+}
+
+@media(max-width:600px){
+  .g2{grid-template-columns:1fr}
+  .cascade{grid-template-columns:1fr;gap:11px}
+  .kunye dl{grid-template-columns:1fr;gap:2px 0}
+  .kunye dt{margin-top:9px}
+  h2{font-size:23px}
+  nav{gap:0;overflow-x:auto;scrollbar-width:none}
+  nav::-webkit-scrollbar{display:none}
+  nav button{white-space:nowrap;font-size:13.5px;padding:8px 12px}
+  .track i{width:9px}
+}
+</style>
+</head>
+<body>
+
+<!-- YÜKLENİYOR -->
+<div class="gate" id="yukleniyor">
+  <div class="gate-card">
+    <div class="mark">FOM<span>.</span></div>
+    <p class="gate-sub" id="yukleniyorMetin">Yükleniyor…</p>
+  </div>
+</div>
+
+<!-- GİRİŞ -->
+<div class="gate" id="gate" style="display:none">
+  <div class="gate-card">
+    <div class="mark">FOM<span>.</span></div>
+    <p class="gate-sub">Katalog ve ziyaret defteri</p>
+    <div class="who" id="whoList"></div>
+  </div>
+</div>
+
+<!-- UYGULAMA -->
+<div class="shell" id="shell">
+  <div class="top">
+    <div class="mark">FOM<span>.</span></div>
+    <div class="me"><b id="benim"></b><button onclick="cik()">çıkış</button></div>
+  </div>
+
+  <nav>
+    <button onclick="git('hesaplar',this)" aria-current="page">Hesaplar</button>
+    <button onclick="git('ziyaretler',this)">Ziyaretler</button>
+    <button onclick="git('secilenler',this)">Seçilen</button>
+    <button onclick="git('katalog',this)">Katalog</button>
+    <button onclick="git('raporlar',this)">Raporlar</button>
+    <button onclick="git('ayarlar',this)">Ayarlar</button>
+  </nav>
+
+  <main>
+    <!-- KATALOG -->
+    <section class="view" id="v-katalog">
+      <h2>Katalog</h2>
+      <p class="lede">Sınıfı seç, türü daralt, kitabı seç. Künye kendiliğinden dolar.</p>
+
+      <div class="search">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="Ya da doğrudan ara: ad, yazar, barkod" autocomplete="off" oninput="ara()">
+        <button class="clr" id="qclr" onclick="temizleQ()" aria-label="Aramayı temizle">×</button>
+      </div>
+
+      <div class="acts" style="margin-bottom:15px">
+        <button class="btn sm" onclick="kitapFormAc()">Kitap ekle</button>
+      </div>
+
+      <div class="panel" id="kForm" style="display:none">
+        <h3 id="kFormBaslik">Yeni kitap</h3>
+        <div class="f"><label for="kAd">Kitap adı <span class="req">*</span></label><input id="kAd" placeholder="Kitabın tam adı"></div>
+        <div class="g2">
+          <div class="f"><label for="kYazar">Yazar</label><input id="kYazar" placeholder="Ad Soyad"></div>
+          <div class="f"><label for="kTur">Tür</label>
+            <input id="kTur" list="turListesi" placeholder="Roman, Öykü…" autocomplete="off">
+            <datalist id="turListesi"></datalist>
+          </div>
+        </div>
+        <div class="f"><label for="kBarkod">Barkod</label><input id="kBarkod" inputmode="numeric" placeholder="13 hane"></div>
+        <div class="f">
+          <label>Hangi sınıflara uygun <span class="req">*</span></label>
+          <div class="checks" id="kSeviye"></div>
+        </div>
+        <div class="acts">
+          <button class="btn" onclick="kitapKaydet()">Kaydet</button>
+          <button class="btn ghost" onclick="kapat('kForm')">Vazgeç</button>
+        </div>
+      </div>
+
+      <div class="cascade">
+        <div class="step">
+          <div class="stepno">1</div>
+          <div class="f"><label for="cSinif">Sınıf</label>
+            <select id="cSinif" onchange="kademe('sinif')"></select></div>
+        </div>
+        <div class="step">
+          <div class="stepno">2</div>
+          <div class="f"><label for="cTur">Tür</label>
+            <select id="cTur" onchange="kademe('tur')"></select></div>
+        </div>
+        <div class="step">
+          <div class="stepno">3</div>
+          <div class="f"><label for="cKitap">Kitap</label>
+            <select id="cKitap" onchange="kunyeCiz()"></select></div>
+        </div>
+      </div>
+
+      <div id="kunye"></div>
+
+      <div class="count">
+        <span><b id="say">180</b> kitap listeleniyor</span>
+        <button id="sifirla" onclick="filtreSifirla()" style="display:none">seçimleri kaldır</button>
+      </div>
+
+      <div class="books" id="books"></div>
+    </section>
+
+    <!-- HESAPLAR -->
+    <section class="view on" id="v-hesaplar">
+      <h2>Hesaplar</h2>
+      <p class="lede">Her okul ve dağıtımcı ayrı bir hesap. Kişiler ve notlar hesabın altında durur.</p>
+
+      <div class="acts" style="margin-bottom:16px">
+        <button class="btn" onclick="hesapFormAc()">Hesap ekle</button>
+      </div>
+
+      <div class="panel" id="hForm" style="display:none">
+        <h3 id="hFormBaslik">Yeni hesap</h3>
+        <div class="f"><label for="hAd">Hesap adı <span class="req">*</span></label><input id="hAd" placeholder="Örn. Şişli Terakki İlkokulu"></div>
+        <div class="g2">
+          <div class="f"><label for="hTur">Hesap türü</label>
+            <select id="hTur" onchange="hesapTuru()"><option>Okul</option><option>Dağıtımcı</option><option>Kitapevi</option></select>
+          </div>
+          <div class="f" id="hOzelWrap"><label for="hOzel">Okul türü</label>
+            <select id="hOzel"><option>Devlet</option><option>Özel</option><option>Zincir</option></select>
+          </div>
+        </div>
+        <div class="f" id="hKademeWrap">
+          <label>Kademe</label>
+          <div class="checks">
+            <label><input type="checkbox" class="kdm" value="Anaokulu"> Anaokulu</label>
+            <label><input type="checkbox" class="kdm" value="İlkokul"> İlkokul</label>
+            <label><input type="checkbox" class="kdm" value="Ortaokul"> Ortaokul</label>
+            <label><input type="checkbox" class="kdm" value="Lise"> Lise</label>
+          </div>
+        </div>
+        <div class="g2">
+          <div class="f"><label for="hIl">İl</label>
+            <select id="hIl" onchange="ilceDoldur()"></select></div>
+          <div class="f"><label for="hIlce">İlçe</label>
+            <select id="hIlce"></select></div>
+        </div>
+        <div class="f"><label for="hAdres">Adres</label><input id="hAdres" placeholder="Açık adres"></div>
+        <div class="f"><label for="hNot">Not</label><textarea id="hNot" placeholder="Bu hesapla ilgili genel notlar"></textarea></div>
+        <div class="acts">
+          <button class="btn" onclick="hesapKaydet()">Kaydet</button>
+          <button class="btn ghost" onclick="kapat('hForm')">Vazgeç</button>
+        </div>
+      </div>
+
+      <div class="panel" id="kisiForm" style="display:none">
+        <h3 id="kisiFormBaslik">Kişi ekle</h3>
+        <p class="lede" id="kisiHesapAdi" style="margin:-8px 0 14px"></p>
+        <div class="g2">
+          <div class="f"><label for="pAd">Ad Soyad <span class="req">*</span></label><input id="pAd" placeholder="Ad Soyad"></div>
+          <div class="f"><label for="pGorev">Görevi</label><input id="pGorev" placeholder="Müdür, Türkçe öğretmeni…"></div>
+        </div>
+        <div class="g2">
+          <div class="f"><label for="pTel">Telefon</label><input id="pTel" type="tel" inputmode="tel" placeholder="0532 000 00 00"></div>
+          <div class="f"><label for="pMail">E-posta</label><input id="pMail" type="email" placeholder="ad@okul.k12.tr"></div>
+        </div>
+        <div class="acts">
+          <button class="btn" onclick="kisiKaydet()">Kaydet</button>
+          <button class="btn ghost" onclick="kapat('kisiForm')">Vazgeç</button>
+        </div>
+      </div>
+
+      <div class="frow" id="ilFiltreWrap" style="display:none">
+        <div class="flabel">İle göre</div>
+        <div class="ladder" id="ilFiltre"></div>
+      </div>
+
+      <div id="hesapListe"></div>
+    </section>
+
+    <!-- ZİYARETLER -->
+    <section class="view" id="v-ziyaretler">
+      <h2>Ziyaretler</h2>
+      <p class="lede">Her görüşmeyi hesabın altına yaz. Hangi kitapları gösterdiğini işaretle.</p>
+
+      <div class="acts" style="margin-bottom:16px">
+        <button class="btn" onclick="ziyaretAc()">Ziyaret ekle</button>
+      </div>
+
+      <div class="panel" id="zForm" style="display:none">
+        <h3 id="zFormBaslik">Yeni ziyaret</h3>
+        <div class="f" id="zHesapWrap">
+          <label for="zHesapArama">Okul <span class="req">*</span></label>
+          <input id="zHesapArama" type="text" placeholder="En az 2 harf yaz…" autocomplete="off"
+                 oninput="zHesapAra()" onfocus="zHesapAra()">
+          <div class="picker" id="zHesapOneri" style="display:none"></div>
+        </div>
+        <div class="g2">
+          <div class="f"><label for="zTarih">Tarih <span class="req">*</span></label><input type="date" id="zTarih"></div>
+          <div class="f" id="zKademeWrap"><label for="zKademe">Kademe</label>
+            <select id="zKademe"></select></div>
+        </div>
+        <div class="f">
+          <label>Görüşme türü</label>
+          <div class="ladder" id="zGorusmeTuruSec">
+            <button type="button" aria-pressed="true" onclick="zGorusmeTuruSec('Yüz yüze',this)">Yüz yüze</button>
+            <button type="button" aria-pressed="false" onclick="zGorusmeTuruSec('Online',this)">Online</button>
+          </div>
+        </div>
+        <div class="f"><label for="zKisi">Görüşülen kişi</label>
+          <select id="zKisi" onchange="zKisiDegisti()"></select>
+          <input id="zKisiYeni" placeholder="Ad Soyad" style="margin-top:7px;display:none"></div>
+        <div class="f"><label for="zNot">Ne konuşuldu</label><textarea id="zNot" placeholder="Görüşmenin detayları, sonraki adım"></textarea></div>
+        <div class="f">
+          <label>Gösterilen kitaplar</label>
+          <button type="button" class="acilir" id="kitapAcButon" onclick="kitapListesiAc()">
+            <span id="kitapOzet">Kitap seç</span><span class="ok">▾</span>
+          </button>
+          <div class="acilir-panel" id="kitapPanel" style="display:none">
+            <input id="zKitapAra" placeholder="Ara: ad, yazar, barkod" autocomplete="off" oninput="kitapListesiCiz()">
+            <div class="g2" style="margin-top:8px">
+              <select id="zSinif" onchange="kitapListesiCiz()"></select>
+              <select id="zTur" onchange="kitapListesiCiz()"></select>
+            </div>
+            <div class="tikli" id="tikliListe"></div>
+            <div class="panel-alt">
+              <span id="tikliSayi">0 seçili</span>
+              <button type="button" class="btn sm" onclick="kitapListesiKapat()">Tamam</button>
+            </div>
+          </div>
+          <div class="picked" id="zSecili"></div>
+        </div>
+        <div class="f">
+          <label for="yazarAraInput">Yazara göre ara</label>
+          <p class="lede" style="margin:-4px 0 8px;font-size:12.5px">Sınıf/tür filtresinden bağımsız — bir yazarın tüm kitapları burada çıkar.</p>
+          <input id="yazarAraInput" type="text" placeholder="Yazar adı yaz (en az 3 harf)…" autocomplete="off" oninput="yazarAra()">
+          <div id="yazarSonuc"></div>
+        </div>
+        <div class="acts">
+          <button class="btn" onclick="ziyaretKaydet()">Kaydet</button>
+          <button class="btn ghost" onclick="kapat('zForm')">Vazgeç</button>
+        </div>
+      </div>
+
+      <div class="frow" id="ziyaretOkulFiltreWrap" style="display:none">
+        <div class="flabel">Okula göre</div>
+        <div class="ladder" id="ziyaretOkulFiltre"></div>
+      </div>
+
+      <div id="ziyaretListe"></div>
+    </section>
+
+    <!-- SEÇİLEN KİTAPLAR -->
+    <section class="view" id="v-secilenler">
+      <h2>Seçilen</h2>
+      <p class="lede">Ziyaretlerde gösterilen her kitap buraya kendiliğinden düşer. Satılanı işaretle, gerekirse not ekle.</p>
+      <div id="secilenListe"></div>
+    </section>
+
+    <!-- RAPORLAR -->
+    <section class="view" id="v-raporlar">
+      <h2>Raporlar</h2>
+      <p class="lede">Hangi kitap hangi okulda ne zaman gösterildi, hangi okullar seçti.</p>
+
+      <div class="frow" id="raporIlFiltreWrap" style="display:none">
+        <div class="flabel">İle göre</div>
+        <div class="ladder" id="raporIlFiltre"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Gösterim kaydı</h3>
+        <p class="lede" style="margin:-8px 0 12px">Hangi kitap, hangi okulda, ne zaman gösterildi.</p>
+        <input id="raporAra" type="text" placeholder="Kitap adına göre ara…" autocomplete="off" oninput="raporGosterimCiz()">
+        <div id="raporGosterimListe" style="margin-top:12px"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Kitaba göre seçilenler</h3>
+        <p class="lede" style="margin:-8px 0 12px">Bir kitap yaz, hangi okullar seçmiş gör.</p>
+        <input id="raporKitapAra" type="text" placeholder="Kitap adı yaz (en az 2 harf)…" autocomplete="off" oninput="raporKitabaGoreAra()">
+        <div id="raporKitabaGoreSonuc" style="margin-top:12px"></div>
+      </div>
+    </section>
+
+    <!-- AYARLAR -->
+    <section class="view" id="v-ayarlar">
+      <h2>Ayarlar</h2>
+      <p class="lede">Kullanıcıları, listeleri ve yedeği buradan yönet.</p>
+
+      <div class="panel">
+        <h3>Kullanıcılar</h3>
+        <p class="lede" style="margin:-8px 0 12px">Giriş ekranında görünen kişiler.</p>
+        <div id="kullaniciListe"></div>
+        <div class="f" style="margin-top:12px"><label for="yeniKullanici">Yeni kullanıcı</label>
+          <input id="yeniKullanici" placeholder="Ad" onkeydown="if(event.key==='Enter')kullaniciEkle()"></div>
+        <label style="display:flex;align-items:center;gap:7px;font-weight:500;font-size:14px;margin-bottom:12px">
+          <input type="checkbox" id="yeniKullaniciKisitli" style="width:auto;padding:0">
+          Kısıtlı — sadece "Seçilen" sekmesini görsün
+        </label>
+        <button class="btn sm" onclick="kullaniciEkle()">Ekle</button>
+      </div>
+
+      <div class="panel">
+        <h3>Ziyaret durumları</h3>
+        <p class="lede" style="margin:-8px 0 12px">Ziyaret formundaki durum seçenekleri.</p>
+        <div id="durumListe"></div>
+        <div class="f" style="margin-top:12px"><label for="yeniDurum">Yeni durum</label>
+          <input id="yeniDurum" placeholder="Örn. Numune bırakıldı" onkeydown="if(event.key==='Enter')durumEkle()"></div>
+        <button class="btn sm" onclick="durumEkle()">Ekle</button>
+      </div>
+
+      <div class="panel">
+        <h3>Hesap türleri</h3>
+        <p class="lede" style="margin:-8px 0 12px">Okul dışında başka müşteri tipin varsa buraya ekle.</p>
+        <div id="hesapTuruListe"></div>
+        <div class="f" style="margin-top:12px"><label for="yeniHesapTuru">Yeni tür</label>
+          <input id="yeniHesapTuru" placeholder="Örn. Kütüphane" onkeydown="if(event.key==='Enter')hesapTuruEkle()"></div>
+        <button class="btn sm" onclick="hesapTuruEkle()">Ekle</button>
+      </div>
+
+      <div class="panel">
+        <h3>Yedekleme</h3>
+        <p class="lede" style="margin:-8px 0 12px">Veriler bu tarayıcıda saklanıyor. Düzenli yedek al.</p>
+        <div id="ozet" class="tags" style="margin-bottom:14px"></div>
+        <div class="acts">
+          <button class="btn" onclick="yedekIndir()">Yedek indir</button>
+          <button class="btn ghost" onclick="yedekDosya.click()">Yedekten geri yükle</button>
+          <input type="file" id="yedekDosya" accept="application/json,.json" style="display:none" onchange="yedekYukle(this)">
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Sıfırlama</h3>
+        <p class="lede" style="margin:-8px 0 12px">Geri alınamaz. Önce yedek al.</p>
+        <div class="acts">
+          <button class="btn link" onclick="hepsiniSil()">Tüm verileri sil</button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+const KATALOG_TOHUM = [{"id":1,"barkod":"9786257395694","ad":"ADA'NIN DİK YOKUŞU","yazar":"BETÜL İLTER","fiyat":168.0,"turu":"Öykü","seviye":[2,3],"baski":1,"sinif":"2. 3. Sınıf"},{"id":2,"barkod":"9786257395083","ad":"AĞZINI AÇMAYAN ROBOT","yazar":"İMREN TÜBCİL","fiyat":165.0,"turu":"Roman","seviye":[3,4],"baski":1,"sinif":"3. 4. Sınıf"},{"id":3,"barkod":"9786257395649","ad":"AH FERHAN AH","yazar":"MUSTAFA HAKKI KURT","fiyat":174.0,"turu":"Roman","seviye":[5,6],"baski":1,"sinif":"5. 6. Sınıf"},{"id":4,"barkod":"9786257395755","ad":"AKLINDAN BİLE GEÇİRME","yazar":"ZAFER ÖZER","fiyat":145.0,"turu":"Roman","seviye":[2,3,4,5],"baski":1,"sinif":"2. 3. 4. 5. Sınıf"},{"id":5,"barkod":"9786059166652","ad":"ANAHTAR ÖYKÜLER","yazar":"SEVİM AK","fiyat":174.0,"turu":"Roman","seviye":[3,4],"baski":1,"sinif":"3. 4. Sınıf"},{"id":6,"barkod":"9786257395564","ad":"ANILARLA MUSTAFA KEMAL ATATÜRK","yazar":"İSMET KÜR","fiyat":174.0,"turu":"Öykü","seviye":[5,6,7],"baski":1,"sinif":"5. 6. 7. Sınıf"},{"id":7,"barkod":"9786257395618","ad":"ANITLARIN ÖYKÜLERİ","yazar":"ADNAN ÖZYALÇINER","fiyat":174.0,"turu":"Öykü","seviye":[5,6,7],"baski":1,"sinif":"5. 6. 7. Sınıf"},{"id":8,"barkod":"9786059166331","ad":"ARKADAŞIM KİRPİ","yazar":"BİLGİN ADALI","fiyat":145.0,"turu":"Öykü","seviye":[2],"baski":1,"sinif":"2. Sınıf"},{"id":9,"barkod":"9786059166379","ad":"ARKADAŞIM OLMAK İSTER MİSİN?","yazar":"SUSIE MORGENSTERN","fiyat":174.0,"turu":"Roman","seviye":[2,3],"baski":1,"sinif":"2. 3. Sınıf"},{"id":10,"barkod":"9786257395823","ad":"AŞURE","yazar":"AYLA ÇINAROĞLU","fiyat":187.5,"turu":"Resimli Kitap","seviye":[0,1,2],"baski":1,"sinif":"Okul Öncesi, 1. 2. Sınıf"},{"id":11,"barkod":"9786059166843","ad":"ATATÜRK VE ÜLKÜNÜN BOYA KALEMLERİ","yazar":"SÜLEYMAN BULUT","fiyat":195.0,"turu":"Resimli Kitap","seviye":[0,1,2],"baski":1,"sinif":"Okul Öncesi, 1. 2. Sınıf"},{"id":12,"barkod":"9786059166447","ad":"ATATÜRK'ÜN KÜÇÜK KULÜBESİ","yazar":"SÜLEYMAN BULUT","fiyat":225.0,"turu":"Resimli Kitap","seviye":[0,1,2],"baski":1,"sinif":"Okul Öncesi, 1. 2. Sınıf"},{"id":13,"barkod":"9786059166737","ad":"BABAMI BEKLERKEN","yazar":"TARIK AKSOY","fiyat":200.0,"turu":"Roman","seviye":[4,5],"baski":1,"sinif":"4. 5. Sınıf"},{"id":14,"barkod":"9786257395243","ad":"BABAMLA ORMANDA","yazar":"LİDER HEPGENÇ","fiyat":225.0,"turu":"Resimli Kitap","seviye":[0,1,2],"baski":1,"sinif":"Okul Öncesi, 1. 2. Sınıf"},{"id":15,"barkod":"9786059166713","ad":"BİLMİŞ BADE VE TAKIM ADA","yazar":"ZÜLEYHA ERSİNGÜN","fiyat":135.0,"turu":"Öykü","seviye":[2,3],"baski":1,"sinif":"2. 3. Sınıf"},{"id":16,"barkod":"9786059166423","ad":"BİR AYAĞI YERDE BİR AYAĞI GÖKTE ŞİİRLER","yazar":"AYTÜL AKAL","fiyat":165.0,"turu":"Şiir","seviye":[2,3],"baski":1,"sinif":"2. 3. Sınıf"},{"id":17,"barkod":"9786059166935","ad":"BİR HAFTADA ORHAN VELİ","yazar":"ORHAN VELİ KANIK","fiyat":120.0,"turu":"Seçki","seviye":[7,8],"baski":1,"sinif":"7. 8. Sınıf"},{"id":18,"barkod":"9786056494116","ad":"BİR HAFTADA SABAHATTİN ALİ","yazar":"SABAHATTİN ALİ","fiyat":120.0,"turu":"Seçki","seviye":[7,8],"baski":1,"sinif":"7. 8. Sınıf"},{"id":19,"barkod":"9786257395205","ad":"BİR RESMİ MÜKEMMEL YAPAN HER ŞEY","yazar":"JODY MCKAY","fiyat":252.0,"turu":"Resimli Kitap","seviye":[0,1],"baski":1,"sinif":"Okul Öncesi, 1. Sınıf"},{"id":20,"barkod":"9786059166126","ad":"BİR ŞEFTALİ BİN ŞEFTALİ","yazar":"SAMED BEHRENGİ","fiyat":80.0,"turu":"Öykü","seviye":[2,3],"baski":1,"sinif":"2. 3. Sınıf"},{"id":21,"barkod":"9786257395175","ad":"BİR TANIŞMA ÖYKÜSÜ","yazar":"SEVİM AK","fiyat":180.0,"turu":"Öykü","seviye":[1,2],"baski":1,"sinif":"1. 2.Sınıf"},{"id":22,"barkod":"9786059166041","ad":"BİZİ AYIRAN SOKAK","yazar":"LIA HADZOPOULOU KARAVIA","fiyat":165.0,"turu":"Roman","seviye":[4,5],"baski":1,"sinif":"4. 5. Sınıf"},{"id":23,"barkod":"9786059166805","ad":"BİZİM EV TATİLDE","yazar":"MUSTAFA HAKKI KURT","fiyat":190.0,"turu":"Roman","seviye":[4,5,6],"baski":1,"sinif":"4. 5. 6. Sınıf"},{"id":24,"barkod":"9786059166584","ad":"BİZİM EVİN HALLERİ","yazar":"MUSTAFA HAKKI KURT","fiyat":185.0,"turu":"Roman","seviye":[4,5,6],"baski":1,"sinif":"4. 5. 6. Sınıf"},{"id":25,"barkod":"9786257395069","ad":"BOB VE DOSTLUK SANATI","yazar":"MARION DEUCHARS","fiyat":252.0,"turu":"Resimli Kitap","seviye":[0,1],"baski":1,"sinif":"Okul Öncesi, 1. Sınıf"},{"id":26,"barkod":"9786059166492","ad":"BOB VE GAGA SANATI","yazar":"MARION DEUCHARS","fiyat":252.0,"turu":"Resimli Kitap","seviye":[0,1],"baski":1,"sinif":"Okul Öncesi, 1. Sınıf"},{"id":27,"barkod":"9786059166300","ad":"BOB VE MAVİ SANATI","yazar":"MARION DEUCHARS","fiyat":252.0,"turu":"Resimli Kitap","seviye":[0,1],"baski":1,"sinif":"Okul Öncesi, 1. Sınıf"},{"id":28,"barkod":"9786059166515","ad":"BU ŞARKILAR SENİN İÇİN","yazar":"TARIK AKSOY","fiyat":200.0,"turu":"Roman","seviye":[7,8,9],"baski":1,"sinif":"7. 8. Sınıf ve Lise"},{"id":29,"barkod":"9786059166140","ad":"BUZDOLABININ SIRRI","yazar":"FLEUR HITCHCOCK","fiyat":190.0,"turu":"Roman","seviye":[5,6],"baski":1,"sinif":"5. 6. Sınıf"},{"id":30,"barkod":"9786059166645","ad":"ÇETİN CEVİZ","yazar":"SİNAN YAŞAR","fiyat":160.0,"turu":"Roman","seviye":[2,3,4],"baski":1,"sinif":"2. 3. 4. Sınıf"},{"id":31,"barkod":"9786257395090","ad":"ÇETİN CEVİZ VE ÇETONYA","yazar":"SİNAN YAŞAR","fiyat":160.0,"turu":"Roman","seviye":[2,3,4],"baski":1,"sinif":"2. 3. 4. Sınıf"},{"id":32,"barkod":"9786257395342","ad":"ÇETİN CEVİZ VE GİZEMLİ MİSAFİRLER","yazar":"SİNAN YAŞAR","fiyat":180.0,"turu":"Roman","seviye":[3,4,5,6],"baski":1,"sinif":"3. 4. 5. 6.Sınıf"},{"id":33,"barkod":"9786059166850","ad":"ÇETİN CEVİZ VE GÖZLÜKLÜ ÇOCUK","yazar":"SİNAN YAŞAR","fiyat":180.0,"turu":"Roman","seviye":[3,4,5,6],"baski":1,"sinif":"3. 4. 5. 6.Sınıf"},{"id":34,"barkod":"9786059166706","ad":"ÇETİN CEVİZ VE MUCİDE","yazar":"SİNAN YAŞAR","fiyat":180.0,"turu":"Roman","seviye":[3,4,5,6],"baski":1,"sinif":"3. 4. 5. 6.Sınıf"},{"id":35,"barkod":"9786059166621","ad":"ÇILGIN UZAYLILAR GELDİ","yazar":"AYTÜL AKAL","fiyat":190.0,"turu":"Roman","seviye":[4,5,6],"baski":1,"sinif":"4. 5. 6. Sınıf"},{"id":36,"barkod":"9786059166980","ad":"ÇİZGİ ROMAN FARESİ","yazar":"GIANNI RODARI","fiyat":145.0,"turu":"Öykü","seviye":[0,1,2],"baski":1,"sinif":"Okul Öncesi, 1. 2. Sınıf"},{"id":37,"barkod":"9786059166416","ad":"ÇOCUKAĞAÇ","yazar":"HABİB BEKTAŞ","fiyat":78.0,"turu":"Öykü","seviye":[3],"baski":1,"sinif":"3. Sınıf"},{"id":38,"barkod":"9786056494109","ad":"ÇOCUKLAR İÇİN ANLAYARAK HIZLI OKUMA","yazar":"ÖZNUR KARAELOĞLU","fiyat":350.0,"turu":"Eğitim","seviye":[5,6,7,8],"baski":1,"sinif":"Ortaokul"},{"id":39,"barkod":"9786257395281","ad":"ÇOK ACAYİP -EVLİYA ÇELEBİ SEYAHATNAME'DEN SEÇMELER","yazar":"SÜLEYMAN BULUT","fiyat":200.0,"turu":"Seçki","seviye":[5,6,7,8],"baski":1,"sinif":"5. 6. 7. 8. Sınıf"},{"id":40,"barkod":"9786059166362","ad":"ÇOK USLU YARAMAZLAR İKİZ ARKADAŞLAR","yazar":"AYTÜL AKAL","fiyat":140.0,"turu":"Öykü","seviye":[1,2],"baski":1,"sinif":"1. 2. Sınıf"},{"id":41,"barkod":"9786059166355","ad":"ÇOK USLU YARAMAZLAR OKUMAK MI YAZMAK MI","yazar":"AYTÜL AKAL","fiyat":140.0,"turu":"Öykü","seviye":[1,2],"baski":1,"sinif":"1. 2. Sınıf"},{"id":42,"barkod":"9786059166676","ad":"ÇOK USLU YARAMAZLAR ÖĞRETMENİN SÜRPRİZİ","yazar":"AYTÜL AKAL","fiyat":140.0,"turu":"Öykü","seviye":[1,2],"baski":1,"sinif":"1. 2. Sınıf"},{"id":43,"barkod":"9786059166768","ad":"DEDE KORKUT KİTABI","yazar":"ADNAN ÖZYALÇINER","fiyat":130.0,"turu":"Roman","seviye":[6,7,8],"baski":1,"sinif":"6. 7 .8. Sınıf"},{"id":44,"barkod":"9786257395076","ad":"DEDEMİN DEDİKLERİ NİNEMİN BİLDİKLERİ","yazar":"AYLA ÇINAROĞLU","fiyat":104.0,"turu":"Öykü","seviye":[2,3,4],"baski":1,"sinif":"2. 3. 4. Sınıf"},{"id":45,"barkod":"9786257395335","ad":"DEDEMİN SİHİRLİ MUTFAĞI","yazar":"AYTÜL AKAL","fiyat":140.0,"turu":"Resimli Kitap","seviye":[0,1],"baski":1,"sinif":"Okul Öncesi, 1. Sınıf"},{"id":46,"barkod":"9786059166553","ad":"DEMİR KAPI","yazar":"AYLA ÇINAROĞLU","fiyat":115.0,"turu":"Öykü","seviye":[9],"baski":1,"sinif":"Lise"},{"id":47,"barkod":"9786059166836","ad":"DUVARLAR RESİM OLSA","yazar":"SEVİM AK","fiyat":190.0,"turu":"Roman","seviye":[4,5,6],"baski":1,"sinif":"4. 5. 6. Sınıf"},{"id":48,"barkod":"9786257395267","ad":"DÜNYA BİZİM EVİMİZ","yazar":"SÜLEYMAN BULUT","fiyat":160.0,"turu":"Resimli Kitap","seviye":[0,1,2],"baski":1,"sinif":"Okul Öncesi, 1. 2. Sınıf"},{"id":49,"barkod":"9786059166997","ad":"DÜNYANIN EN ŞİŞMANI","yazar":"SEVİM AK","fiyat":220.0,"turu":"Roman","seviye":[4,5,6],"baski":1,"sinif":"4. 5. 6. Sınıf"},{"id":50,"barkod":"9786258611052","ad":"DÜNYAYI DEĞİŞTİRENLER - BİLİM İNSANLARI & MUCİTLER","yazar":"DERLEME","fiyat":190.0,"turu":"Bilim Çocuk","seviye":[5,6,7],"baski":1,"sinif":"5. 6. 7. Sınıf"},{"id":51,"barkod":"9786059166386","ad":"DÜNYAYI KURTARAN ÇOCUK","yazar":"BİLGİN ADALI","fiyat":150.0,"turu":"Roman","seviye":[4,5,6],"baski":1,"sinif":"4. 5. 6. Sınıf"},{"id":52,"barkod":"9786257395014","ad":"DÜŞ PEŞİNE","yazar":"ZÜLEYHA ERSİNGÜN","fiyat":200.0,"turu":"Roman","seviye":[4,5,6],"baski":1,"sinif":"4. 5. 6. Sınıf"},{"id":53,"barkod":"9786059166973","ad":"EN ŞANSLI SAYI","yazar":"GIANNI RODARI","fiyat":145.0,"turu":"Öykü","seviye":[0,1,2],"baski":1,"sinif":"Okul Öncesi, 1. 2. Sınıf"},{"id":54,"barkod":"9786258611076","ad":"ERİK ÇEKİRDEĞİ","yazar":"LEV TOLSTOY","fiyat":120.0,"turu":"Çocuk Klasik","seviye":[2,3,4],"baski":1,"sinif":"2. 3. 4. Sınıf"},{"id":55,"barkod":"9786059166157","ad":"ESRARENGİZ DUMAN","yazar":"AYTÜL AKAL","fiyat":205.0,"turu":"Roman","seviye":[5,6,7],"baski":1,"sinif":"5. 6. 7. Sınıf"},{"id":56,"barkod":"9786257395021","ad":"EVLERE SIĞMAYAN MACERA","yazar":"AYTÜL AKAL","fiyat":190.0,"turu":"Roman","seviye":[4,5,6],"baski":1,"sinif":"4. 5. 6. Sınıf"},{"id":57,"barkod":"9786059166638","ad":"FİL OLMAK İSTEYEN FARE","yazar":"ÖZNUR KARAELOĞLU","fiyat":120.0,"turu":"Öykü","seviye":[1,2],"baski":1,"sinif":"1. 2. Sınıf"},{"id":58,"barkod":"9786257395878","ad":"GACAGUCU VE AİLENİN GÜCÜ","yazar":"SİNAN YAŞAR","fiyat":150.0,"turu":"Öykü","seviye":[1,2],"baski":1,"sinif":"1. 2. Sınıf"},{"id":59,"barkod":"9786059166942","ad":"GACAGUCU VE DÜNYANIN ÖBÜR UCU","yazar":"SİNAN YAŞAR","fiyat":150.0,"turu":"Öykü","seviye":[1,2],"baski":1,"sinif":"1. 2. Sınıf"},{"id":60,"barkod":"9786257395199","ad":"GARİP NASIL OKUYACAK","yazar":"ADNAN ÖZYALÇINER","fiyat":130.0,"turu":"Roman","seviye":[2,3],"baski":1,"sinif":"2. 3. Sınıf"},{"id":61,"barkod":"9786257395595","ad":"GENÇLER İÇİN NUTUK","yazar":"MUSTAFA KEMAL ATATÜRK","fiyat":120.0,"turu":"Gençlik - Başvuru","seviye":[5,6,7],"baski":1,"sinif":"5. 6. 7. Sınıflar (11- + Derleme)"},{"id":62,"barkod":"9786257395632","ad":"GÖKTEKİ YILDIZIM","yazar":"SUSANNA TAMARO","fiyat":190.0,"turu":"Roman","seviye":[6,7],"baski":1,"sinif":"6. 7. Sınıf"},{"id":63,"barkod":"9786059166256","ad":"GÖKTEN UZAYLI DÜŞTÜ","yazar":"AYTÜL AKAL","fiyat":174.0,"turu":"Roman","seviye":[4,5,6],"baski":1,"sinif":"4. 5. 6. Sınıf"},{"id":65,"barkod":"9786059166683","ad":"GÖNDEREN MUSTAFA KEMAL","yazar":"ELVAN PEKTAŞ DENİZ","fiyat":165.0,"turu":"Roman","seviye":[4,5,6,7,8],"baski":1,"sinif":"4. 5. 6. 7. 8. Sınıf"},{"id":66,"barkod":"9786059166522","ad":"GUGUKLU SAAT","yazar":"ELVAN PEKTAŞ DENİZ","fiyat":136.0,"turu":"Roman","seviye":[2],"baski":1,"sinif":"2. Sınıf"},{"id":67,"barkod":"9786059166003","ad":"GULYABANİ","yazar":"HÜSEYİN RAHMİ GÜRPINAR","fiyat":105.0,"turu":"Roman","seviye":[5,6,7],"baski":1,"sinif":"5. 6. 7. Sınıf"},{"id":69,"barkod":"9786056494192","ad":"GÜNEŞ KOVALAMA MAKİNESİ","yazar":"İMREN TÜBCİL","fiyat":165.0,"turu":"Roman","seviye":[3,4],"baski":1,"sinif":"3. 4. Sınıf"},{"id":70,"barkod":"9786059166065","ad":"HAYAL PEŞİNDE","yazar":"ZÜLEYHA ERSİNGÜN","fiyat":190.0,"turu":"Roman","seviye":[4,5,6],"baski":1,"sinif":"4. 5. 6. Sınıf"},{"id":71,"barkod":"9786257395892","ad":"HAYALLERİ KAÇAN ÇOCUK","yazar":"ZEYNEP BİRSİN","fiyat":224.0,"turu":"Resimli Kitap","seviye":[0,1],"baski":1,"sinif":"Okul Öncesi, 1. Sınıf"},{"id":72,"barkod":"9786257395748","ad":"HAYAT APARTMANI","yazar":"ÖZGE LOKMANHEKİM","fiyat":252.0,"turu":"Resimli Kitap","seviye":[1,2],"baski":1,"sinif":"1. 2. Sınıf"},{"id":73,"barkod":"9786059166928","ad":"HAYVAN ÇİFTLİĞİ HALİDE EDİB ÇEVİRİSİ","yazar":"GEORGE ORWELL","fiyat":95.0,"turu":"Roman","seviye":[7,8],"baski":1,"sinif":"7. 8. Sınıf"},{"id":74,"barkod":"9786059166911","ad":"HAYVAN ÇİFTLİĞİ HALİDE EDİB ÇEVİRİSİ SERT KAPAK","yazar":"GEORGE ORWELL","fiyat":196.0,"turu":"Roman","seviye":[9],"baski":1,"sinif":"Lise"},{"id":75,"barkod":"9786257395625","ad":"HIZLI OKUYAN KURTÇUK","yazar":"BETÜL İLTER","fiyat":220.0,"turu":"Çocuk / Roman","seviye":[3,4,5],"baski":1,"sinif":"3. 4. 5.  Sınıf"},{"id":76,"barkod":"9786257395847","ad":"HIZLI OKUYAN KURTÇUK ETKİNLİK PEŞİNDE","yazar":"BETÜL İLTER","fiyat":250.0,"turu":"Çocuk / Roman","seviye":[3,4,5],"baski":1,"sinif":"3. 4. 5.  Sınıf"},{"id":77,"barkod":"9786059166867","ad":"İDEALİST ÖĞRETMEN","yazar":"GRIGORY PETROV","fiyat":120.0,"turu":"Roman","seviye":[6,7,8],"baski":1,"sinif":"6. 7. 8. Sınıf"},{"id":78,"barkod":"9786059166317","ad":"İMDAT UZAYLI YAĞIYOR","yazar":"AYTÜL AKAL","fiyat":190.0,"turu":"Roman","seviye":[4,5,6],"baski":1,"sinif":"4. 5. 6. Sınıf"},{"id":79,"barkod":"9786257395007","ad":"İSTASYON ÇOCUKLARI","yazar":"MUSTAFA HAKKI KURT","fiyat":170.0,"turu":"Roman","seviye":[6,7,8],"baski":1,"sinif":"6. 7. 8. Sınıf"},{"id":80,"barkod":"9786257395212","ad":"KAFESTE BİR ORMAN","yazar":"SEHER CESUR KILIÇASLAN - SELİN CESUR","fiyat":165.0,"turu":"Roman","seviye":[2,3],"baski":1,"sinif":"2. 3. Sınıf"},{"id":82,"barkod":"9786257395311","ad":"KARGA YAVRUSU - ÇOCUKLAR ve GENÇLER İÇİN SEÇME ÖYKÜLER","yazar":"MEMDUH ŞEVKET ESENDAL","fiyat":160.0,"turu":"Öykü","seviye":[6,7,8,9],"baski":1,"sinif":"6. 7. 8. Sınıf ve Lise"},{"id":83,"barkod":"9786059166287","ad":"KAYGI KUŞU ZOÇKO","yazar":"ZÜLEYHA ERSİNGÜN","fiyat":220.0,"turu":"Roman","seviye":[3,4,5,6],"baski":1,"sinif":"3. 4. 5. 6. Sınıf"},{"id":84,"barkod":"9786257395700","ad":"KEDİ KÖPEK ZIPIRLARI","yazar":"YALVAÇ URAL","fiyat":170.0,"turu":"Bilmece","seviye":[1,2,3],"baski":1,"sinif":"1. 2. 3. Sınıf"},{"id":85,"barkod":"9786257395816","ad":"KEDİDEN KAÇAN TOP","yazar":"BETÜL İLTER","fiyat":150.0,"turu":"Resimli Kitap","seviye":[0,1,2],"baski":1,"sinif":"Okul Öncesi, 1. 2. Sınıf"},{"id":86,"barkod":"9786059166546","ad":"KELOĞLAN İLE KÖSE","yazar":"ADNAN ÖZYALÇINER - SENNUR SEZER","fiyat":104.0,"turu":"Öykü","seviye":[2],"baski":1,"sinif":"2. Sınıf"},{"id":87,"barkod":"9786059166478","ad":"KIVIRCIKLAR DÜNYASI","yazar":"BANU BOZDEMİR","fiyat":125.0,"turu":"Öykü","seviye":[2],"baski":1,"sinif":"2. Sınıf"},{"id":88,"barkod":"9786059166966","ad":"KOLEZYUMU TAŞIYAN ADAM","yazar":"GIANNI RODARI","fiyat":145.0,"turu":"Öykü","seviye":[0,1,2],"baski":1,"sinif":"Okul Öncesi, 1. 2. Sınıf"},{"id":89,"barkod":"9786059166607","ad":"KORUDAKİ KOMŞULAR","yazar":"AYLA ÇINAROĞLU","fiyat":240.0,"turu":"Öykü","seviye":[3,4],"baski":1,"sinif":"3. 4. Sınıf"},{"id":91,"barkod":"9786056494123","ad":"KÖPEK OLMAK İSTEYEN KEDİ","yazar":"ÖZNUR KARAELOĞLU","fiyat":120.0,"turu":"Öykü","seviye":[1,2],"baski":1,"sinif":"1. 2. Sınıf"},{"id":92,"barkod":"9786257395854","ad":"KRAL ÇOCUK","yazar":"SİNAN YAŞAR","fiyat":192.0,"turu":"Roman","seviye":[4,5,6],"baski":1,"sinif":"4. 5. 6. Sınıf"},{"id":93,"barkod":"9786257395656","ad":"KUM MİDYESİNİN DALGALI YOLCULUĞU","yazar":"SÜLEYMAN BULUT","fiyat":125.0,"turu":"Çocuk / Öykü","seviye":[1,2],"baski":1,"sinif":"1. 2. Sınıf"},{"id":95,"barkod":"9786059166010","ad":"KÜÇÜK KARA BALIK","yazar":"SAMED BEHRENGİ","fiyat":80.0,"turu":"Öykü","seviye":[2,3],"baski":1,"sinif":"2. 3. Sınıf"},{"id":96,"barkod":"9786056494178","ad":"KÜÇÜK PRENS","yazar":"EXUPERY","fiyat":70.0,"turu":"Roman","seviye":[3,4,5,6],"baski":1,"sinif":"3. 4. 5. 6. Sınıf"},{"id":97,"barkod":"9786257395663","ad":"KÜÇÜK SALYANGOZUN AKŞAM YEMEĞİ","yazar":"SÜLEYMAN BULUT","fiyat":125.0,"turu":"Çocuk / Öykü","seviye":[1,2],"baski":1,"sinif":"1. 2. Sınıf"},{"id":98,"barkod":"9786257395670","ad":"KÜÇÜK TİLKİ VE KUYRUĞU","yazar":"SÜLEYMAN BULUT","fiyat":125.0,"turu":"Çocuk / Öykü","seviye":[1,2],"baski":1,"sinif":"1. 2. Sınıf"},{"id":99,"barkod":"9786059166232","ad":"KÜLTÜR ALIŞVERİŞİ","yazar":"ISOL","fiyat":190.0,"turu":"Resimli Kitap","seviye":[0,1],"baski":1,"sinif":"Okul Öncesi, 1. Sınıf"},{"id":100,"barkod":"9786257395885","ad":"LEYLA KİTAPLARI SEVİYOR","yazar":"JOSEPH COELHO","fiyat":140.0,"turu":"Resimli Kitap","seviye":[0,1],"baski":1,"sinif":"Okul Öncesi, 1. Sınıf"},{"id":101,"barkod":"9786257395151","ad":"LEYLEKLER UÇARKEN","yazar":"SÜLEYMAN BULUT","fiyat":165.0,"turu":"Roman","seviye":[2,3],"baski":1,"sinif":"2. 3. Sınıf"},{"id":103,"barkod":"9786059166201","ad":"MASAL YAZDIM ŞİİR SANDIM","yazar":"MELEK ÖZLEM SEZER","fiyat":165.0,"turu":"Şiir","seviye":[2,3],"baski":1,"sinif":"2. 3. Sınıf"},{"id":104,"barkod":"9786059166669","ad":"MASALIMI GÖREN OLDU MU","yazar":"SİMA ÖZKAN","fiyat":140.0,"turu":"Roman","seviye":[2,3],"baski":1,"sinif":"2. 3. Sınıf"},{"id":105,"barkod":"9786257395731","ad":"MAVİ BALON","yazar":"AYLA ÇINAROĞLU","fiyat":145.0,"turu":"Resimli Kitap","seviye":[0,1,2],"baski":1,"sinif":"Okul Öncesi, 1. 2. Sınıf"},{"id":106,"barkod":"9786059166959","ad":"MİNİK CESUR KEREVİT","yazar":"GIANNI RODARI","fiyat":145.0,"turu":"Öykü","seviye":[0,1,2],"baski":1,"sinif":"Okul Öncesi, 1. 2. Sınıf"},{"id":107,"barkod":"9786059166690","ad":"MİŞMİŞ NEREDEYMİŞ EVDE","yazar":"LİDER HEPGENÇ","fiyat":174.0,"turu":"Roman","seviye":[2,3,4],"baski":1,"sinif":"2. 3. 4. Sınıf"},{"id":108,"barkod":"9786059166591","ad":"MİŞMİŞ NEREDEYMİŞ MUTFAKTA","yazar":"LİDER HEPGENÇ","fiyat":168.0,"turu":"Roman","seviye":[2,3],"baski":1,"sinif":"2. 3. Sınıf"},{"id":109,"barkod":"9786257395038","ad":"MİŞMİŞ NEREDEYMİŞ OKULDA","yazar":"LİDER HEPGENÇ","fiyat":174.0,"turu":"Öykü","seviye":[3,4],"baski":1,"sinif":"3. 4. Sınıf"},{"id":112,"barkod":"9786257395687","ad":"MOKO İLE DİNOZO","yazar":"AYTÜL AKAL","fiyat":174.0,"turu":"Öykü","seviye":[2,3],"baski":1,"sinif":"2. 3. Sınıf"},{"id":114,"barkod":"9786257395236","ad":"MUTLU BİR GÜN","yazar":"AYLA ÇINAROĞLU","fiyat":145.0,"turu":"Resimli Kitap","seviye":[0,1,2],"baski":1,"sinif":"Okul Öncesi, 1. 2. Sınıf"},{"id":115,"barkod":"9786059166218","ad":"MUTLU PRENS","yazar":"OSCAR WILDE","fiyat":100.0,"turu":"Öykü","seviye":[3,4,5,6],"baski":1,"sinif":"3. 4. 5. 6. Sınıf"},{"id":116,"barkod":"9786257395908","ad":"MÜZEDE NELER OLUYOR","yazar":"LİDER HEPGENÇ","fiyat":252.0,"turu":"Resimli Kitap","seviye":[0,1,2],"baski":1,"sinif":"Okul Öncesi, 1. 2. Sınıf"},{"id":117,"barkod":"9786257395298","ad":"MÜZİSYEN İNEK MISRA","yazar":"GEOFFROY DE PENNART","fiyat":256.0,"turu":"Resimli Kitap","seviye":[0,1,2],"baski":1,"sinif":"Okul Öncesi, 1. 2. Sınıf"},{"id":118,"barkod":"9786257395717","ad":"NEHRİN KAYBOLDUĞU GÜN","yazar":"ZÜLEYHA ERSİNGÜN","fiyat":190.0,"turu":"Roman","seviye":[6,7],"baski":1,"sinif":"6. 7. Sınıf"},{"id":119,"barkod":"9786059166096","ad":"NOEL ŞARKISI","yazar":"CHARLES DICKENS","fiyat":100.0,"turu":"Roman","seviye":[5,6],"baski":1,"sinif":"5. 6. Sınıf"},{"id":120,"barkod":"9786257395830","ad":"NOTALAR APARTMANI","yazar":"ŞÖHRET DOĞRUYOL SAĞBAŞ","fiyat":174.0,"turu":"Resimli Kitap","seviye":[2,3,4],"baski":1,"sinif":"2. 3. 4. Sınıf"},{"id":121,"barkod":"9786257395328","ad":"O BİR ROL MODEL","yazar":"BRAD COHEN - LISA WYSOCKY","fiyat":200.0,"turu":"Roman","seviye":[7,8,9],"baski":1,"sinif":"7. 8. Sınıf ve Lise"},{"id":122,"barkod":"9786257395779","ad":"ON ÜÇÜNÜ ENGEL","yazar":"AYFER GÜRDAL ÜNAL","fiyat":145.0,"turu":"İlk Gençlik","seviye":[5,6],"baski":1,"sinif":"5. 6. Sınıf"},{"id":123,"barkod":"9786059166744","ad":"ORMANDA EĞLENCE","yazar":"GIANNI RODARI","fiyat":210.0,"turu":"Öykü","seviye":[3,4],"baski":1,"sinif":"3. 4. Sınıf"},{"id":124,"barkod":"9786258611038","ad":"OYUNCU BABAM","yazar":"MİCHAEL MORPURGO","fiyat":200.0,"turu":"Roman","seviye":[3,4],"baski":1,"sinif":"3. 4. Sınıf"},{"id":125,"barkod":"9786059166799","ad":"ÖYKÜDEYİM - ÖYKÜLERLE DEYİMLER","yazar":"AYLA ÇINAROĞLU","fiyat":135.0,"turu":"Öykü","seviye":[2,3],"baski":1,"sinif":"2. 3. Sınıf"},{"id":126,"barkod":"9786257395106","ad":"PATİLERİ KORUMA EKİBİ","yazar":"HİRA AYŞE ÖZSOY","fiyat":165.0,"turu":"Roman","seviye":[3,4],"baski":1,"sinif":"3. 4. Sınıf"},{"id":127,"barkod":"9786059166461","ad":"PENCEREDEN BAKAN ÇOCUK","yazar":"SENNUR SEZER","fiyat":135.0,"turu":"Şiir","seviye":[3,4],"baski":1,"sinif":"3. 4. Sınıf"},{"id":128,"barkod":"9786257395762","ad":"PERA'DA NEFES NEFESE","yazar":"AYFER GÜRDAL ÜNAL","fiyat":190.0,"turu":"Çocuk-İlk Gençlik","seviye":[4,5,6],"baski":1,"sinif":"4. 5. 6. Sınıf"},{"id":129,"barkod":"9786257395274","ad":"PETEK BÖCEKSEVER ARILARI KURTARDIĞINDA","yazar":"CATHERİNE JACOB","fiyat":252.0,"turu":"Resimli Kitap","seviye":[0,1,2],"baski":1,"sinif":"Okul Öncesi, 1. 2. Sınıf"},{"id":131,"barkod":"9786257395588","ad":"RÖVEŞATA MUSTAFA","yazar":"SİNAN YAŞAR","fiyat":165.0,"turu":"Roman","seviye":[3,4,5,6],"baski":1,"sinif":"3. 4. 5. 6. Sınıf"},{"id":132,"barkod":"9786257395304","ad":"SANATSAL BİR MACERA","yazar":"LİDER HEPGENÇ","fiyat":185.0,"turu":"Hikaye","seviye":[3,4,5],"baski":1,"sinif":"3. 4. 5. Sınıf"},{"id":133,"barkod":"9786059166454","ad":"SATRANÇ","yazar":"STEFAN ZWEIG","fiyat":100.0,"turu":"Roman","seviye":[6,7,8],"baski":1,"sinif":"6. 7. 8. Sınıf"},{"id":134,"barkod":"9786257395786","ad":"SATRANÇ APARTMANI","yazar":"ŞÖHRET DOĞRUYOL SAĞBAŞ","fiyat":174.0,"turu":"Resimli Kitap","seviye":[2,3,4],"baski":1,"sinif":"2. 3. 4. Sınıf"},{"id":135,"barkod":"9786059166539","ad":"SENİ KÜÇÜK CANAVAR","yazar":"ISOL","fiyat":190.0,"turu":"Resimli Kitap","seviye":[0,1],"baski":1,"sinif":"Okul Öncesi, 1. Sınıf"},{"id":137,"barkod":"9786059166904","ad":"SES DEDEKTİFİ TOLGA K SEVER KOKARCA","yazar":"BİRSEN EKİM ÖZEN","fiyat":156.0,"turu":"Öykü","seviye":[1,2],"baski":1,"sinif":"1. 2. Sınıf"},{"id":138,"barkod":"9786059166225","ad":"SEVGİ MASALI","yazar":"SAMED BEHRENGİ","fiyat":80.0,"turu":"Öykü","seviye":[2,3],"baski":1,"sinif":"2. 3. Sınıf"},{"id":139,"barkod":"9786059166720","ad":"SU… SU… SU…","yazar":"AYLA ÇINAROĞLU","fiyat":145.0,"turu":"Resimli Kitap","seviye":[0,1,2],"baski":1,"sinif":"Okul Öncesi, 1. 2. Sınıf"},{"id":141,"barkod":"9786257395052","ad":"SÜPERVASAT İSKENDER","yazar":"SUSIE MORGENSTERN","fiyat":145.0,"turu":"Roman","seviye":[2,3],"baski":1,"sinif":"2. 3. Sınıf"},{"id":143,"barkod":"9786059166119","ad":"ŞİİR YAZDIM MASAL SANDIM","yazar":"MELEK ÖZLEM SEZER","fiyat":165.0,"turu":"Şiir","seviye":[2,3],"baski":1,"sinif":"2. 3. Sınıf"},{"id":144,"barkod":"9786059166812","ad":"ŞİİRİMİ DUYAN OLDU MU","yazar":"SİMA ÖZKAN","fiyat":150.0,"turu":"Roman","seviye":[2,3],"baski":1,"sinif":"2. 3. Sınıf"},{"id":145,"barkod":"9786257395861","ad":"TAKMA ADI GAGALI","yazar":"AYFER GÜRDAL ÜNAL","fiyat":175.0,"turu":"Roman","seviye":[5,6],"baski":1,"sinif":"5. 6. Sınıf"},{"id":146,"barkod":"9786257395601","ad":"TARİHTEN ÖYKÜLER","yazar":"ADNAN ÖZYALÇINER","fiyat":128.0,"turu":"Öykü","seviye":[4,5,6],"baski":1,"sinif":"4. 5. 6. Sınıf"},{"id":147,"barkod":"9786059166034","ad":"TAVŞAN BIDIBIK DERS ÇALIŞIYOR","yazar":"SEHER CESUR KILIÇASLAN","fiyat":70.0,"turu":"Öykü","seviye":[1],"baski":1,"sinif":"1. Sınıf"},{"id":148,"barkod":"9786059166089","ad":"TAVŞAN BIDIBIK DİŞ HEKİMİNDE","yazar":"SEHER CESUR KILIÇASLAN","fiyat":70.0,"turu":"Öykü","seviye":[1],"baski":1,"sinif":"1. Sınıf"},{"id":149,"barkod":"9786059166560","ad":"TAVŞAN BIDIBIK HASTALANIYOR","yazar":"SEHER CESUR KILIÇASLAN","fiyat":80.0,"turu":"Öykü","seviye":[1],"baski":1,"sinif":"1. Sınıf"},{"id":150,"barkod":"9786059166171","ad":"TAVŞAN BIDIBIK KARDEŞİNİ SEVİYOR","yazar":"SEHER CESUR KILIÇASLAN","fiyat":70.0,"turu":"Öykü","seviye":[1],"baski":1,"sinif":"1. Sınıf"},{"id":151,"barkod":"9786059166348","ad":"TAVŞAN BIDIBIK KÖPÜKLER İÇİNDE","yazar":"SEHER CESUR KILIÇASLAN","fiyat":80.0,"turu":"Öykü","seviye":[1],"baski":1,"sinif":"1. Sınıf"},{"id":152,"barkod":"9786059166102","ad":"TAVŞAN BIDIBIK ORMANDA","yazar":"SEHER CESUR KILIÇASLAN","fiyat":70.0,"turu":"Öykü","seviye":[1],"baski":1,"sinif":"1. Sınıf"},{"id":153,"barkod":"9786059166270","ad":"TAVŞAN BIDIBIK OYUN PEŞİNDE","yazar":"SEHER CESUR KILIÇASLAN","fiyat":80.0,"turu":"Öykü","seviye":[1],"baski":1,"sinif":"1. Sınıf"},{"id":154,"barkod":"9786059166164","ad":"TAVŞAN BIDIBIK ÖZÜR DİLİYOR","yazar":"SEHER CESUR KILIÇASLAN","fiyat":70.0,"turu":"Öykü","seviye":[1],"baski":1,"sinif":"1. Sınıf"},{"id":155,"barkod":"9786059166294","ad":"TAVŞAN BIDIBIK PAYLAŞMAYI ÖĞRENİYOR","yazar":"SEHER CESUR KILIÇASLAN","fiyat":80.0,"turu":"Öykü","seviye":[1],"baski":1,"sinif":"1. Sınıf"},{"id":156,"barkod":"9786059166409","ad":"TAVŞAN BIDIBIK YARDIMLAŞMAYI SEVİYOR","yazar":"SEHER CESUR KILIÇASLAN","fiyat":80.0,"turu":"Öykü","seviye":[1],"baski":1,"sinif":"1. Sınıf"},{"id":157,"barkod":"9786257395182","ad":"TAVŞAN OLMAK İSTEYEN KAPLUMBAĞA","yazar":"ÖZNUR KARAELOĞLU","fiyat":95.0,"turu":"Öykü","seviye":[1,2],"baski":1,"sinif":"1. 2. Sınıf"},{"id":158,"barkod":"9786257395168","ad":"TAVŞAN PETER'İN MASALI","yazar":"BEATRIX POTTER","fiyat":205.0,"turu":"Resimli Kitap","seviye":[0,1],"baski":1,"sinif":"Okul Öncesi, 1. Sınıf"},{"id":159,"barkod":"9786258611069","ad":"THE KİD WHO DİSCOVERED WRİTİNG","yazar":"SİNAN YAŞAR","fiyat":349.0,"turu":"İngilizce Roman","seviye":[5,6,7,8],"baski":1,"sinif":"5. 6. 7. 8. Sınıf"},{"id":160,"barkod":"9786059166485","ad":"TİK TAKLARI TOPLAMA EKİBİ","yazar":"HİRA AYŞE ÖZSOY","fiyat":165.0,"turu":"Roman","seviye":[3,4],"baski":1,"sinif":"3. 4. Sınıf"},{"id":162,"barkod":"9786059166782","ad":"TORBİYİ KİM YUTTU","yazar":"SARAH ROBERTS","fiyat":252.0,"turu":"Resimli Kitap","seviye":[0,1],"baski":1,"sinif":"Okul Öncesi, 1. Sınıf"},{"id":163,"barkod":"9786257395229","ad":"TRENLER NE GÜZELDİR","yazar":"KEMAL ÖZER","fiyat":120.0,"turu":"Roman","seviye":[3,4,5],"baski":1,"sinif":"3. 4. 5. Sınıf"},{"id":164,"barkod":"9786059166393","ad":"TUNÇ VE AYÇİÇEĞİ","yazar":"CAO WENXUAN","fiyat":225.0,"turu":"Roman","seviye":[7,8,9],"baski":1,"sinif":"7. 8. Sınıf ve Lise"},{"id":165,"barkod":"9786059166898","ad":"TUZ MASALI","yazar":"AYLA ÇINAROĞLU","fiyat":145.0,"turu":"Resimli Kitap","seviye":[0,1,2],"baski":1,"sinif":"Okul Öncesi, 1. 2. Sınıf"},{"id":166,"barkod":"9786059166508","ad":"TÜM SORULARIN CEVABI BENDE","yazar":"ZÜLEYHA ERSİNGÜN","fiyat":145.0,"turu":"Roman","seviye":[2,3,4],"baski":1,"sinif":"2. 3. 4. Sınıf"},{"id":167,"barkod":"9786257395571","ad":"ÜÇ YAŞINDA ÜÇ METRE BOYUNDA","yazar":"VİVİAN LAMARQUE","fiyat":136.0,"turu":"Öykü","seviye":[0,1,2],"baski":1,"sinif":"Okul Öncesi, 1. 2. Sınıf"},{"id":168,"barkod":"9786059166027","ad":"YAĞMUR TOPLAYAN ŞEMSİYE","yazar":"İMREN TÜBCİL","fiyat":165.0,"turu":"Roman","seviye":[3,4],"baski":1,"sinif":"3. 4. Sınıf"},{"id":169,"barkod":"9786059166881","ad":"YAPRAK","yazar":"ORHAN VELİ KANIK","fiyat":85.0,"turu":"Şiir","seviye":[2,3,4],"baski":1,"sinif":"2. 3. 4. Sınıf"},{"id":170,"barkod":"9786257395250","ad":"YARIN CUMHURİYETİ İLAN EDİYORUZ!","yazar":"ELVAN PEKTAŞ DENİZ","fiyat":160.0,"turu":"Roman","seviye":[4,5,6,7,8],"baski":1,"sinif":"4. 5. 6. 7. 8. Sınıf"},{"id":171,"barkod":"9786257395557","ad":"YAVRU BAYKUŞLAR","yazar":"MARTIN WADDELL","fiyat":220.0,"turu":"Resimli Kitap","seviye":[0,1,2],"baski":1,"sinif":"Okul Öncesi, 1. 2. Sınıf"},{"id":172,"barkod":"9786059166829","ad":"YAZIYI BULAN ÇOCUK","yazar":"SİNAN YAŞAR","fiyat":245.0,"turu":"Roman","seviye":[4,5,6],"baski":1,"sinif":"4. 5. 6. Sınıf"},{"id":174,"barkod":"9786059166133","ad":"YAZMAK SANATI","yazar":"ADNAN BİNYAZAR - EMİN ÖZDEMİR","fiyat":210.0,"turu":"Eğitim","seviye":[5,6,7,8],"baski":1,"sinif":"Ortaokul"},{"id":175,"barkod":"9786257395540","ad":"YEŞİL PAPAĞANLAR  NEREDEN GELDİ?","yazar":"BETÜL İLTER","fiyat":165.0,"turu":"Resimli Kitap","seviye":[0,1],"baski":1,"sinif":"Okul Öncesi, 1. Sınıf"},{"id":176,"barkod":"9786257395793","ad":"YETENEK YARIŞMASI","yazar":"JO HODGKINSON","fiyat":275.0,"turu":"Resimli Kitap","seviye":[0,1],"baski":1,"sinif":"Okul Öncesi, 1. Sınıf"},{"id":177,"barkod":"9786059166874","ad":"YILDIZLAR NEREYE","yazar":"SEVİM AK","fiyat":170.0,"turu":"Roman","seviye":[3,4,5],"baski":1,"sinif":"3. 4. 5. Sınıf"},{"id":178,"barkod":"9786257395809","ad":"YULU'NUN GİZEMLİ TUVALİ","yazar":"CAO WENXUAN","fiyat":224.0,"turu":"Resimli Kitap","seviye":[2,3,4],"baski":1,"sinif":"2. 3. 4. Sınıf"},{"id":179,"barkod":"9786056494147","ad":"YUVAYA UÇMAK","yazar":"MARCO DELGADO","fiyat":25.0,"turu":"Öykü","seviye":[2],"baski":1,"sinif":"2. Sınıf"},{"id":180,"barkod":"9786257395724","ad":"ZIPIR BİLMECELER","yazar":"YALVAÇ URAL","fiyat":165.0,"turu":"Bilmece","seviye":[4,5,6],"baski":1,"sinif":"4. 5. 6.  Sınıf"}];
+
+const SEV = [
+  {v:0,k:'Okul Ö.',t:'Okul Öncesi'},{v:1,k:'1',t:'1. sınıf'},{v:2,k:'2',t:'2. sınıf'},
+  {v:3,k:'3',t:'3. sınıf'},{v:4,k:'4',t:'4. sınıf'},{v:5,k:'5',t:'5. sınıf'},
+  {v:6,k:'6',t:'6. sınıf'},{v:7,k:'7',t:'7. sınıf'},{v:8,k:'8',t:'8. sınıf'},{v:9,k:'Lise',t:'Lise'}
+];
+const renk = v => v===0?'var(--lv0)':v<=2?'var(--lv12)':v<=4?'var(--lv34)':v<=6?'var(--lv56)':v<=8?'var(--lv78)':'var(--lv9)';
+
+/* Türkçe arama: İ/ı sorununu çözer, aksansız yazımı da eşleştirir */
+const TR={'ı':'i','İ':'i','I':'i','ş':'s','Ş':'s','ğ':'g','Ğ':'g','ü':'u','Ü':'u',
+          'ö':'o','Ö':'o','ç':'c','Ç':'c','â':'a','Â':'a','î':'i','Î':'i','û':'u','Û':'u'};
+const norm = s => String(s??'').replace(/[ıİIşŞğĞüÜöÖçÇâÂîÎûÛ]/g,c=>TR[c])
+                    .normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* ---------- Supabase bağlantısı ---------- */
+const SUPABASE_URL = 'https://xapbmfketbzqezvwkbub.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_NvHgGsZfl0SiAtrKA1YIuA_6g-cRxzw';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* ---------- JS nesnesi <-> Postgres satırı dönüşümleri ----------
+   Postgres tarafı snake_case (hesap_id, gorusme_turu), JS tarafı camelCase (hesapId, gorusmeTuru).
+   "not" Postgres'te ayrılmış kelime olduğu için sütun adı "aciklama". */
+function kitapFromDB(r){ return {id:r.id, barkod:r.barkod||'', ad:r.ad, yazar:r.yazar||'', turu:r.turu||'', seviye:r.seviye||[], sinif:r.sinif||''}; }
+function kitapToDB(k){ return {id:k.id, barkod:k.barkod||null, ad:k.ad, yazar:k.yazar||null, turu:k.turu||null, seviye:k.seviye||[], sinif:k.sinif||null}; }
+
+function hesapFromDB(r){ return {id:r.id, ad:r.ad, tur:r.tur, ozel:r.ozel||'', kademe:r.kademe||[], il:r.il||'', ilce:r.ilce||'', adres:r.adres||'', not:r.aciklama||'', kisiler:r.kisiler||[], ekleyen:r.ekleyen||''}; }
+function hesapToDB(h){ return {id:h.id, ad:h.ad, tur:h.tur, ozel:h.ozel||null, kademe:h.kademe||[], il:h.il||null, ilce:h.ilce||null, adres:h.adres||null, aciklama:h.not||null, kisiler:h.kisiler||[], ekleyen:h.ekleyen||null}; }
+
+function ziyaretFromDB(r){ return {id:r.id, hesapId:r.hesap_id, tarih:r.tarih, kademe:r.kademe||'', gorusmeTuru:r.gorusme_turu||'', kisi:r.kisi||'', not:r.aciklama||'', kitaplar:r.kitaplar||[], ekleyen:r.ekleyen||'', duzenleyen:r.duzenleyen||''}; }
+function ziyaretToDB(z){ return {id:z.id, hesap_id:z.hesapId, tarih:z.tarih, kademe:z.kademe||null, gorusme_turu:z.gorusmeTuru||null, kisi:z.kisi||null, aciklama:z.not||null, kitaplar:z.kitaplar||[], ekleyen:z.ekleyen||null, duzenleyen:z.duzenleyen||null}; }
+
+function secimFromDB(r){ return {id:r.id, ziyaretId:r.ziyaret_id, hesapId:r.hesap_id, kitapId:r.kitap_id, tarih:r.tarih, satildi:!!r.satildi, not:r.aciklama||''}; }
+function secimToDB(s){ return {id:s.id, ziyaret_id:s.ziyaretId, hesap_id:s.hesapId, kitap_id:s.kitapId, tarih:s.tarih, satildi:!!s.satildi, aciklama:s.not||''}; }
+
+/* bir dizinin TAMAMINI Supabase'le eşitler: eklenenleri/değişenleri yazar, çıkarılanları siler */
+async function tabloSenkronize(tablo, dizi, toDB, idAlani='id'){
+  try{
+    const {data:mevcutlar, error:e1} = await db.from(tablo).select(idAlani);
+    if(e1) throw e1;
+    const mevcutIdler = new Set((mevcutlar||[]).map(r=>r[idAlani]));
+    const yeniIdler = new Set(dizi.map(x=>x.id));
+    const silinecekler = [...mevcutIdler].filter(id=>!yeniIdler.has(id));
+    if(silinecekler.length){
+      const {error:e2} = await db.from(tablo).delete().in(idAlani, silinecekler);
+      if(e2) throw e2;
+    }
+    if(dizi.length){
+      const {error:e3} = await db.from(tablo).upsert(dizi.map(toDB));
+      if(e3) throw e3;
+    }
+    return true;
+  }catch(e){
+    console.error('Supabase yazma hatası:', tablo, e);
+    alert(`Kaydedilemedi (${tablo})! İnternet bağlantını kontrol et ve tekrar dene.\n\nDetay: ${e.message||e}`);
+    return false;
+  }
+}
+/* isim listesi tabloları (kullanicilar, durumlar, hesap_turleri) — sıralı string dizisi */
+async function stringDiziSenkronize(tablo, dizi){
+  try{
+    const {error:e1} = await db.from(tablo).delete().neq('ad','__yok__');
+    if(e1) throw e1;
+    if(dizi.length){
+      const {error:e2} = await db.from(tablo).insert(dizi.map((ad,i)=>({ad,sira:i})));
+      if(e2) throw e2;
+    }
+    return true;
+  }catch(e){
+    console.error('Supabase yazma hatası:', tablo, e);
+    alert(`Kaydedilemedi (${tablo})! İnternet bağlantını kontrol et ve tekrar dene.\n\nDetay: ${e.message||e}`);
+    return false;
+  }
+}
+async function rolleriSenkronize(nesne){
+  try{
+    const {error:e1} = await db.from('kullanici_rolleri').delete().neq('kullanici_ad','__yok__');
+    if(e1) throw e1;
+    const satirlar = Object.entries(nesne).map(([kullanici_ad,rol])=>({kullanici_ad,rol}));
+    if(satirlar.length){
+      const {error:e2} = await db.from('kullanici_rolleri').insert(satirlar);
+      if(e2) throw e2;
+    }
+    return true;
+  }catch(e){
+    console.error('Supabase yazma hatası: kullanici_rolleri', e);
+    alert(`Kaydedilemedi! İnternet bağlantını kontrol et ve tekrar dene.\n\nDetay: ${e.message||e}`);
+    return false;
+  }
+}
+
+/* eski localStorage tabanlı kodun HİÇ değişmeden çalışmaya devam etmesi için:
+   aynı isimli yaz(anahtar, veri) fonksiyonu artık Supabase'e yazıyor. */
+async function yaz(k,v){
+  switch(k){
+    case 'katalog': return await tabloSenkronize('kitaplar', v, kitapToDB);
+    case 'hesaplar': return await tabloSenkronize('hesaplar', v, hesapToDB);
+    case 'ziyaretler': return await tabloSenkronize('ziyaretler', v, ziyaretToDB);
+    case 'secimler': return await tabloSenkronize('secimler', v, secimToDB);
+    case 'kullanicilar': return await stringDiziSenkronize('kullanicilar', v);
+    case 'durumlar': return await stringDiziSenkronize('durumlar', v);
+    case 'hesapTurleri': return await stringDiziSenkronize('hesap_turleri', v);
+    case 'kullaniciRolleri': return await rolleriSenkronize(v);
+  }
+  return true;
+}
+
+/* Katalogdaki "kaldırılan" kitapları Supabase'den de temizler (varsa) */
+const KALDIRILAN_BARKODLAR=['9786059166263','9786056494130','9786059166324','9786059166614',
+  '9786059166188','9786059166058','9786059166249','9786056494154','9786059166072','9786059166577',
+  '9786059166751','9786059166195','9786059166430','9786056494185','9786059166775'];
+
+function indeksle(){ KITAPLAR.forEach(k=>k._s=norm(k.ad+' '+k.yazar+' '+k.barkod+' '+k.turu)); }
+async function katalogKaydet(){
+  const basarili = await yaz('katalog', KITAPLAR.map(({_s,...r})=>r));
+  indeksle();
+  return basarili;
+}
+
+let ben=null, filtre={q:'',sev:null,tur:''}, ilSecili=null, secilenKitaplar=[],
+    duzenlenenHesap=null, duzenlenenKitap=null, duzenlenenZiyaret=null,
+    kisiHesapId=null, duzenlenenKisi=null, zHesapSeciliId=null, zGorusmeTuruSecili='Yüz yüze';
+const KADEME_SEV={'Anaokulu':[0],'İlkokul':[1,2,3,4],'Ortaokul':[5,6,7,8],'Lise':[9]};
+
+/* Çoklu cihazdan aynı anda kayıt eklenirse ID çakışmasını önleyen üretici.
+   Date.now() tek başına milisaniye hassasiyetinde (iki istek aynı milisaniyede olursa çakışabilir);
+   buna aynı sayfa oturumu içinde döngüsel artan bir sayaç ekleyerek, AYNI CİHAZDA art arda
+   (hatta aynı milisaniyede) yapılan eklemelerin kesinlikle farklı ID üretmesini sağlıyoruz.
+   Farklı cihazlar arası çakışma ihtimali matematiksel olarak sıfır değil ama insan hızında
+   kullanımda (form doldurup Kaydet'e basma, saniyeler mertebesinde) pratikte gerçekleşmez.
+   Postgres tarafında id kolonları bigint — bu değer güvenle sığar (Number.MAX_SAFE_INTEGER altında). */
+let _idSayac = 0;
+function yeniId(){ _idSayac = (_idSayac+1) % 1000; return Date.now()*1000 + _idSayac; }
+
+/* Bu değişkenler önce boş başlar, uygulamayiBaslat() Supabase'den doldurur */
+let KITAPLAR=[], hesaplar=[], ziyaretler=[], secimler=[];
+let kullanicilar=['Pelin','Ömer'];
+let kullaniciRolleri={};
+function kullaniciRolu(isim){ return kullaniciRolleri[isim]==='kisitli' ? 'kisitli' : 'tam'; }
+let durumlar=['İlk görüşme','Tekrar görüşme','Karar bekliyor','Olumlu sonuçlandı','Olumsuz'];
+let hesapTurleri=['Okul','Dağıtımcı','Kitapevi'];
+
+async function uygulamayiBaslat(){
+  try{
+    const [kRes,hRes,zRes,sRes,kuRes,krRes,dRes,htRes] = await Promise.all([
+      db.from('kitaplar').select('*'),
+      db.from('hesaplar').select('*'),
+      db.from('ziyaretler').select('*'),
+      db.from('secimler').select('*'),
+      db.from('kullanicilar').select('*').order('sira'),
+      db.from('kullanici_rolleri').select('*'),
+      db.from('durumlar').select('*').order('sira'),
+      db.from('hesap_turleri').select('*').order('sira'),
+    ]);
+    for(const r of [kRes,hRes,zRes,sRes,kuRes,krRes,dRes,htRes]) if(r.error) throw r.error;
+
+    KITAPLAR = (kRes.data||[]).map(kitapFromDB).filter(k=>!KALDIRILAN_BARKODLAR.includes(k.barkod));
+    if(!KITAPLAR.length){
+      // Supabase'de henüz katalog yoksa (SQL çalıştırılmadıysa) en azından TOHUM'dan başla
+      KITAPLAR = JSON.parse(JSON.stringify(KATALOG_TOHUM)).map(({fiyat,baski,...r})=>r)
+        .filter(k=>!KALDIRILAN_BARKODLAR.includes(k.barkod));
+    }
+    hesaplar = (hRes.data||[]).map(hesapFromDB);
+    ziyaretler = (zRes.data||[]).map(ziyaretFromDB);
+    secimler = (sRes.data||[]).map(secimFromDB);
+    if(kuRes.data && kuRes.data.length) kullanicilar = kuRes.data.map(r=>r.ad);
+    kullaniciRolleri = {}; (krRes.data||[]).forEach(r=>{ kullaniciRolleri[r.kullanici_ad]=r.rol; });
+    if(dRes.data && dRes.data.length) durumlar = dRes.data.map(r=>r.ad);
+    if(htRes.data && htRes.data.length) hesapTurleri = htRes.data.map(r=>r.ad);
+
+    indeksle();
+    yukleniyor.style.display='none';
+    gate.style.display='';
+    girisCiz();
+  }catch(e){
+    console.error('Başlatma hatası:', e);
+    const detay = (e && (e.message || e.error_description || e.hint || e.details)) || JSON.stringify(e) || String(e);
+    yukleniyorMetin.innerHTML = 'Bağlanılamadı.<br><br><span style="font-size:12px;color:var(--warn);word-break:break-word">'+esc(String(detay))+'</span><br><br>İnternet bağlantını kontrol edip sayfayı yenile.';
+  }
+}
+
+/* ---------- giriş ---------- */
+function girisCiz(){
+  whoList.innerHTML=kullanicilar.map((k,i)=>
+    `<button onclick="girIndex(${i})"><i>${esc(k.charAt(0).toLocaleUpperCase('tr'))}</i> ${esc(k)} olarak devam et</button>`
+  ).join('') || `<p class="gate-sub">Kullanıcı tanımlı değil.</p>`;
+}
+
+function girIndex(i){ if(kullanicilar[i]) gir(kullanicilar[i]); }
+function gir(k){
+  ben=k; sessionStorage.setItem('fom_ben',k);
+  gate.style.display='none'; shell.classList.add('on'); benim.textContent=k;
+  kur();
+  const kisitli = kullaniciRolu(k)==='kisitli';
+  document.querySelectorAll('nav button').forEach(b=>{
+    const m=(b.getAttribute('onclick')||'').match(/git\('(\w+)'/);
+    const hedef = m ? m[1] : '';
+    b.style.display = (kisitli && hedef!=='secilenler') ? 'none' : '';
+  });
+  if(kisitli){
+    git('secilenler', document.querySelector("nav button[onclick*=\"'secilenler'\"]"));
+  }else{
+    hesapCiz();
+  }
+}
+function cik(){ sessionStorage.removeItem('fom_ben'); location.reload(); }
+
+/* yarım kalmış YENİ kayıt formu varsa (düzenleme değil), sekme değişmeden önce uyarır */
+function formlarKirliMi(){
+  if(typeof zForm!=='undefined' && zForm && zForm.style.display==='block' && duzenlenenZiyaret==null){
+    if(zHesapSeciliId || zNot.value.trim() || secilenKitaplar.length || (zKisiYeni.style.display!=='none' && zKisiYeni.value.trim())) return true;
+  }
+  if(typeof hForm!=='undefined' && hForm && hForm.style.display==='block' && duzenlenenHesap==null){
+    if(hAd.value.trim() || hAdres.value.trim() || hNot.value.trim()) return true;
+  }
+  if(typeof kForm!=='undefined' && kForm && kForm.style.display==='block' && duzenlenenKitap==null){
+    if(kAd.value.trim() || kYazar.value.trim() || kBarkod.value.trim()) return true;
+  }
+  if(typeof kisiForm!=='undefined' && kisiForm && kisiForm.style.display==='block' && duzenlenenKisi==null){
+    if(pAd.value.trim() || pTel.value.trim() || pMail.value.trim()) return true;
+  }
+  return false;
+}
+/* Sekme değişince ilgili tabloları Supabase'den taze çeker —
+   böylece başka bir cihazdan girilen veri, sekmeye her girişte görünür. */
+async function veriTazele(hangiler){
+  const sorgular = {
+    kitaplar: async ()=>{
+      const {data,error} = await db.from('kitaplar').select('*');
+      if(error) throw error;
+      const yeni = data.map(kitapFromDB).filter(k=>!KALDIRILAN_BARKODLAR.includes(k.barkod));
+      if(yeni.length) KITAPLAR = yeni;
+      indeksle();
+    },
+    hesaplar: async ()=>{
+      const {data,error} = await db.from('hesaplar').select('*');
+      if(error) throw error;
+      hesaplar = data.map(hesapFromDB);
+    },
+    ziyaretler: async ()=>{
+      const {data,error} = await db.from('ziyaretler').select('*');
+      if(error) throw error;
+      ziyaretler = data.map(ziyaretFromDB);
+    },
+    secimler: async ()=>{
+      const {data,error} = await db.from('secimler').select('*');
+      if(error) throw error;
+      secimler = data.map(secimFromDB);
+    },
+    kullanicilar: async ()=>{
+      const {data,error} = await db.from('kullanicilar').select('*').order('sira');
+      if(error) throw error;
+      if(data.length) kullanicilar = data.map(x=>x.ad);
+    },
+    kullaniciRolleri: async ()=>{
+      const {data,error} = await db.from('kullanici_rolleri').select('*');
+      if(error) throw error;
+      kullaniciRolleri = {}; data.forEach(x=>{ kullaniciRolleri[x.kullanici_ad]=x.rol; });
+    },
+    durumlar: async ()=>{
+      const {data,error} = await db.from('durumlar').select('*').order('sira');
+      if(error) throw error;
+      if(data.length) durumlar = data.map(x=>x.ad);
+    },
+    hesapTurleri: async ()=>{
+      const {data,error} = await db.from('hesap_turleri').select('*').order('sira');
+      if(error) throw error;
+      if(data.length) hesapTurleri = data.map(x=>x.ad);
+    },
+  };
+  try{
+    await Promise.all(hangiler.map(h=>sorgular[h]()));
+  }catch(e){
+    console.error('Veri tazeleme hatası:', e); // sessizce mevcut yerel veriyle devam et
+  }
+}
+
+async function git(v,el){
+  if(formlarKirliMi() && !confirm('Doldurduğun form henüz kaydedilmedi. Sekme değiştirirsen bu bilgiler kaybolur.\n\nYine de devam edilsin mi?')) return;
+  document.querySelectorAll('.view').forEach(s=>s.classList.remove('on'));
+  document.getElementById('v-'+v).classList.add('on');
+  document.querySelectorAll('nav button').forEach(b=>b.removeAttribute('aria-current'));
+  el.setAttribute('aria-current','page');
+
+  const tazeleHaritasi = {
+    hesaplar: ['hesaplar'],
+    ziyaretler: ['ziyaretler','hesaplar'],
+    secilenler: ['secimler','hesaplar','kitaplar'],
+    katalog: ['kitaplar'],
+    raporlar: ['ziyaretler','secimler','hesaplar'],
+    ayarlar: ['kullanicilar','kullaniciRolleri','durumlar','hesapTurleri'],
+  };
+  if(tazeleHaritasi[v]) await veriTazele(tazeleHaritasi[v]);
+
+  if(v==='hesaplar') hesapCiz();
+  if(v==='ziyaretler') ziyaretCiz();
+  if(v==='secilenler') secimCiz();
+  if(v==='raporlar') raporCiz();
+  if(v==='ayarlar') ayarCiz();
+  window.scrollTo(0,0);
+}
+const ac=id=>document.getElementById(id).style.display='block';
+const kapat=id=>document.getElementById(id).style.display='none';
+
+/* ---------- katalog ---------- */
+function kur(){
+  cSinif.innerHTML='<option value="">Tüm sınıflar</option>'+
+    SEV.map(s=>`<option value="${s.v}">${s.t} (${KITAPLAR.filter(k=>k.seviye.includes(s.v)).length})</option>`).join('');
+  kademe('sinif');
+}
+
+/* 1 Sınıf -> 2 Tür -> 3 Kitap : her adım bir sonrakini besler */
+function kademe(hangi){
+  if(hangi==='sinif'){ filtre.sev = cSinif.value===''?null:Number(cSinif.value); turDoldur(); kitapDoldur(); }
+  if(hangi==='tur'){ filtre.tur = cTur.value; kitapDoldur(); }
+  kunyeCiz(); ara();
+}
+function havuz(){   // sınıf süzgecinden geçmiş kitaplar
+  return filtre.sev===null ? KITAPLAR : KITAPLAR.filter(k=>k.seviye.includes(filtre.sev));
+}
+function turDoldur(){
+  const h=havuz();
+  const turler=[...new Set(h.map(k=>k.turu))].sort((a,b)=>a.localeCompare(b,'tr'));
+  cTur.innerHTML='<option value="">Tüm türler</option>'+turler.map(t=>
+    `<option value="${esc(t)}">${esc(t)} (${h.filter(k=>k.turu===t).length})</option>`).join('');
+  filtre.tur='';
+}
+function kitapDoldur(){
+  const h=havuz().filter(k=>!filtre.tur||k.turu===filtre.tur)
+                 .sort((a,b)=>a.ad.localeCompare(b.ad,'tr'));
+  cKitap.disabled=!h.length;
+  cKitap.innerHTML=`<option value="">${h.length?'Kitap seç ('+h.length+')':'Kitap yok'}</option>`+
+    h.map(k=>`<option value="${k.id}">${esc(k.ad)}</option>`).join('');
+}
+
+/* seçilen kitabın künyesi otomatik dolar */
+function kunyeCiz(id){
+  const secili = id ?? (cKitap.value?Number(cKitap.value):null);
+  if(secili===null){ kunye.innerHTML=''; return; }
+  const k=KITAPLAR.find(x=>x.id===secili);
+  if(!k){ kunye.innerHTML=''; return; }
+  if(id!=null) cKitap.value=String(id);
+  const mid=k.seviye[Math.floor(k.seviye.length/2)];
+  kunye.innerHTML=`<div class="kunye" style="--bar:${renk(mid)}">
+    <div class="kh">${esc(k.ad)}</div>
+    <div class="ka">${esc(k.turu)}</div>
+    <dl>
+      <dt>Barkod</dt><dd class="mono">${esc(k.barkod)}</dd>
+      <dt>Yazar</dt><dd>${esc(k.yazar)}</dd>
+      <dt>Sınıf</dt><dd>${esc(k.sinif)}</dd>
+    </dl>
+    <div class="acts" style="margin-top:14px">
+      <button class="btn ghost sm" onclick="kitapFormAc(${k.id})">Düzenle</button>
+      <button class="btn link" onclick="kitapSil(${k.id})">Katalogdan sil</button>
+    </div>
+  </div>`;
+}
+
+/* ---------- katalog düzenleme ---------- */
+function kitapFormAc(id){
+  duzenlenenKitap = id ?? null;
+  const t=[...new Set(KITAPLAR.map(k=>k.turu))].sort((a,b)=>a.localeCompare(b,'tr'));
+  turListesi.innerHTML=t.map(x=>`<option value="${esc(x)}">`).join('');
+  kSeviye.innerHTML=SEV.map(s=>
+    `<label><input type="checkbox" class="sv" value="${s.v}"> ${s.t}</label>`).join('');
+  const k = id!=null ? KITAPLAR.find(x=>x.id===id) : null;
+  kFormBaslik.textContent = k ? 'Kitabı düzenle' : 'Yeni kitap';
+  kAd.value=k?k.ad:''; kYazar.value=k?k.yazar:''; kTur.value=k?k.turu:'';
+  kBarkod.value=k?k.barkod:'';
+  if(k) document.querySelectorAll('.sv').forEach(c=>c.checked=k.seviye.includes(Number(c.value)));
+  ac('kForm'); kForm.scrollIntoView({behavior:'smooth',block:'nearest'}); kAd.focus();
+}
+function sinifMetni(sev){
+  if(!sev.length) return '';
+  return sev.map(v=>SEV.find(s=>s.v===v).t).join(', ');
+}
+async function kitapKaydet(){
+  const ad=kAd.value.trim();
+  if(!ad){ alert('Kitap adı gerekli.'); kAd.focus(); return; }
+  const sev=[...document.querySelectorAll('.sv:checked')].map(c=>Number(c.value)).sort((a,b)=>a-b);
+  if(!sev.length){ alert('En az bir sınıf işaretle.'); return; }
+  const barkod=kBarkod.value.trim();
+  const cakisan=KITAPLAR.find(x=>x.barkod===barkod && x.id!==duzenlenenKitap);
+  if(barkod && cakisan){ alert('Bu barkod zaten kayıtlı: '+cakisan.ad); return; }
+  const veri={
+    ad, yazar:kYazar.value.trim(), turu:kTur.value.trim()||'Belirtilmemiş',
+    barkod, seviye:sev, sinif:sinifMetni(sev)
+  };
+  if(duzenlenenKitap!=null){
+    KITAPLAR=KITAPLAR.map(x=>x.id===duzenlenenKitap?{...x,...veri}:x);
+  }else{
+    veri.id=yeniId();
+    KITAPLAR.push(veri);
+  }
+  await katalogKaydet(); kapat('kForm');
+  const yeniId = duzenlenenKitap ?? veri.id;
+  duzenlenenKitap=null;
+  kur(); kunyeCiz(yeniId);
+}
+async function kitapSil(id){
+  const k=KITAPLAR.find(x=>x.id===id); if(!k)return;
+  const ziyaretSayisi = ziyaretler.filter(z=>(z.kitaplar||[]).includes(id)).length;
+  const secimSayisi = secimler.filter(s=>s.kitapId===id).length;
+  if(ziyaretSayisi>0 || secimSayisi>0){
+    alert(`"${k.ad}" silinemedi.\n\nBu kitap ${ziyaretSayisi} ziyarette gösterilmiş${secimSayisi?` (${secimSayisi} seçim kaydı var)`:''}. Önce o ziyaretleri düzenleyip bu kitabı listeden çıkarman gerekiyor — aksi halde geçmiş kayıtlarda kitabın adı kaybolur.`);
+    return;
+  }
+  if(!confirm(`"${k.ad}" katalogdan silinecek. Onaylıyor musun?`))return;
+  KITAPLAR=KITAPLAR.filter(x=>x.id!==id);
+  await katalogKaydet(); kunye.innerHTML=''; kur();
+}
+
+function temizleQ(){ q.value=''; ara(); }
+function filtreSifirla(){
+  q.value=''; cSinif.value=''; filtre={q:'',sev:null,tur:''};
+  turDoldur(); kitapDoldur(); kunye.innerHTML=''; ara();
+}
+function ara(){
+  filtre.q=norm(q.value.trim());
+  qclr.classList.toggle('on',!!filtre.q);
+  const r=KITAPLAR.filter(k=>{
+    if(filtre.sev!==null && !k.seviye.includes(filtre.sev)) return false;
+    if(filtre.tur && k.turu!==filtre.tur) return false;
+    if(filtre.q && !k._s.includes(filtre.q)) return false;
+    return true;
+  });
+  // barkod yazınca tek kitap kalırsa künyeyi kendiliğinden aç
+  if(filtre.q && r.length===1) kunyeCiz(r[0].id);
+  say.textContent=r.length;
+  sifirla.style.display=(filtre.q||filtre.sev!==null||filtre.tur)?'block':'none';
+  books.innerHTML = r.length ? r.map(kart).join('')
+    : `<div class="empty"><b>Eşleşen kitap yok</b><p>Aramayı kısaltmayı veya sınıf seçimini kaldırmayı dene.</p></div>`;
+}
+function kart(k){
+  const mid=k.seviye[Math.floor(k.seviye.length/2)], c=renk(mid);
+  const track=SEV.map(s=>`<i class="${k.seviye.includes(s.v)?'f':''}"></i>`).join('');
+  const ilk=SEV.find(s=>s.v===k.seviye[0]), son=SEV.find(s=>s.v===k.seviye[k.seviye.length-1]);
+  const aralik = k.seviye.length===1 ? ilk.t : `${ilk.k==='Okul Ö.'?'Okul Öncesi':ilk.k} – ${son.t}`;
+  return `<article class="book" style="--bar:${c}" onclick="kunyeCiz(${k.id});kunye.scrollIntoView({behavior:'smooth',block:'center'})" tabindex="0" onkeydown="if(event.key==='Enter')this.click()">
+    <h3>${esc(k.ad)}</h3>
+    <p class="meta">${esc(k.yazar)} · ${esc(k.turu)}</p>
+    <div class="span"><span class="track">${track}</span><small>${esc(aralik)}</small></div>
+    <div class="foot"><span class="barcode">${esc(k.barkod)}</span></div>
+  </article>`;
+}
+
+/* ---------- hesaplar ---------- */
+function hesapTuruDoldur(){
+  const s=hTur.value;
+  hTur.innerHTML=hesapTurleri.map(t=>`<option>${esc(t)}</option>`).join('');
+  if(hesapTurleri.includes(s)) hTur.value=s;
+  hesapTuru();
+}
+function hesapTuru(){
+  const okul = hTur.value==='Okul';
+  hOzelWrap.style.display = okul?'block':'none';
+  hKademeWrap.style.display = okul?'block':'none';
+}
+async function hesapKaydet(){
+  const ad=hAd.value.trim();
+  if(!ad){ alert('Hesap adı gerekli.'); hAd.focus(); return; }
+  const h={
+    id: duzenlenenHesap ?? yeniId(),
+    ad, tur:hTur.value,
+    ozel: hTur.value==='Okul'?hOzel.value:'',
+    kademe:[...document.querySelectorAll('.kdm:checked')].map(c=>c.value),
+    il:hIl.value, ilce:hIlce.value, adres:hAdres.value.trim(), not:hNot.value.trim(),
+    kisiler: duzenlenenHesap ? (hesaplar.find(x=>x.id===duzenlenenHesap)?.kisiler||[]) : [],
+    ekleyen: ben
+  };
+  if(duzenlenenHesap) hesaplar=hesaplar.map(x=>x.id===duzenlenenHesap?h:x);
+  else hesaplar.push(h);
+  await yaz('hesaplar',hesaplar); duzenlenenHesap=null;
+  hFormBaslik.textContent='Yeni hesap';
+  ['hAd','hAdres','hNot'].forEach(i=>document.getElementById(i).value='');
+  document.querySelectorAll('.kdm').forEach(c=>c.checked=false);
+  ilDoldur();
+  kapat('hForm'); hesapCiz();
+}
+function hesapFormAc(){
+  duzenlenenHesap=null; hFormBaslik.textContent='Yeni hesap';
+  ['hAd','hAdres','hNot'].forEach(i=>document.getElementById(i).value='');
+  document.querySelectorAll('.kdm').forEach(c=>c.checked=false);
+  hesapTuruDoldur(); ilDoldur(); ac('hForm'); hAd.focus();
+}
+function hesapDuzenle(id){
+  const h=hesaplar.find(x=>x.id===id); if(!h)return;
+  duzenlenenHesap=id; hFormBaslik.textContent='Hesabı düzenle';
+  hesapTuruDoldur(); ilDoldur(h.il,h.ilce);
+  hAd.value=h.ad; hTur.value=h.tur; hOzel.value=h.ozel||'Devlet';
+  hAdres.value=h.adres; hNot.value=h.not;
+  document.querySelectorAll('.kdm').forEach(c=>c.checked=(h.kademe||[]).includes(c.value));
+  hesapTuru(); ac('hForm'); hForm.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+async function hesapSil(id){
+  if(!confirm('Bu hesap ve altındaki ziyaretler silinecek. Onaylıyor musun?'))return;
+  const silinenZiyaretIdler = ziyaretler.filter(z=>z.hesapId===id).map(z=>z.id);
+  hesaplar=hesaplar.filter(x=>x.id!==id);
+  ziyaretler=ziyaretler.filter(z=>z.hesapId!==id);
+  secimler=secimler.filter(s=>!silinenZiyaretIdler.includes(s.ziyaretId));
+  await yaz('hesaplar',hesaplar); await yaz('ziyaretler',ziyaretler); await yaz('secimler',secimler); hesapCiz();
+  if(zHesapSeciliId===id && typeof zHesapArama!=='undefined' && zHesapArama){
+    zHesapSeciliId=null; zHesapArama.value=''; zKademeDoldur(); zKisiDoldur();
+  }
+  if(ziyaretOkulSecili===id) ziyaretOkulSecili=null;
+}
+function kisiFormAc(hid,kid){
+  kisiHesapId=hid; duzenlenenKisi=kid??null;
+  const h=hesaplar.find(x=>x.id===hid); if(!h)return;
+  const k=kid!=null?(h.kisiler||[]).find(x=>x.id===kid):null;
+  kisiFormBaslik.textContent=k?'Kişiyi düzenle':'Kişi ekle';
+  kisiHesapAdi.textContent=h.ad;
+  pAd.value=k?k.ad:''; pGorev.value=k?k.gorev:''; pTel.value=k?k.tel:''; pMail.value=k?k.mail:'';
+  ac('kisiForm'); kisiForm.scrollIntoView({behavior:'smooth',block:'nearest'}); pAd.focus();
+}
+async function kisiKaydet(){
+  const ad=pAd.value.trim();
+  if(!ad){ alert('Ad Soyad gerekli.'); pAd.focus(); return; }
+  const h=hesaplar.find(x=>x.id===kisiHesapId); if(!h)return;
+  h.kisiler=h.kisiler||[];
+  const veri={ad,gorev:pGorev.value.trim(),tel:pTel.value.trim(),mail:pMail.value.trim()};
+  let eskiAd=null;
+  if(duzenlenenKisi!=null){
+    const eskiKisi=h.kisiler.find(x=>x.id===duzenlenenKisi);
+    if(eskiKisi) eskiAd=eskiKisi.ad;
+    h.kisiler=h.kisiler.map(x=>x.id===duzenlenenKisi?{...x,...veri}:x);
+  }else{
+    h.kisiler.push({id:yeniId(),...veri});
+  }
+  await yaz('hesaplar',hesaplar);
+  // isim değiştiyse, bu kişiyle yapılmış geçmiş ziyaretlerdeki ismi de güncelle
+  if(eskiAd && eskiAd!==ad){
+    ziyaretler=ziyaretler.map(z => (z.hesapId===kisiHesapId && z.kisi===eskiAd) ? {...z, kisi:ad} : z);
+    await yaz('ziyaretler',ziyaretler);
+  }
+  duzenlenenKisi=null; kisiHesapId=null; kapat('kisiForm'); hesapCiz(true);
+}
+async function kisiSil(hid,kid){
+  const h=hesaplar.find(x=>x.id===hid); if(!h)return;
+  const k=(h.kisiler||[]).find(x=>x.id===kid);
+  if(!confirm(`"${k?k.ad:'Bu kişi'}" silinecek. Onaylıyor musun?`))return;
+  h.kisiler=h.kisiler.filter(x=>x.id!==kid); await yaz('hesaplar',hesaplar); hesapCiz(true);
+}
+function ilSec(il,el){
+  ilSecili=il;
+  ilFiltre.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed','false'));
+  el.setAttribute('aria-pressed','true'); hesapCiz(true);
+}
+function hesapCiz(korunanIl){
+  if(!korunanIl){
+    const iller=[...new Set(hesaplar.map(h=>h.il).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'tr'));
+    ilFiltreWrap.style.display = iller.length>1?'block':'none';
+    ilFiltre.innerHTML = `<button aria-pressed="${ilSecili?'false':'true'}" onclick="ilSec(null,this)">Hepsi</button>`+
+      iller.map(i=>`<button aria-pressed="${ilSecili===i?'true':'false'}" onclick="ilSec('${esc(i)}',this)">${esc(i)} (${hesaplar.filter(h=>h.il===i).length})</button>`).join('');
+  }
+  const liste = ilSecili?hesaplar.filter(h=>h.il===ilSecili):hesaplar;
+  hesapListe.innerHTML = liste.length ? liste.map(h=>{
+    const zs=ziyaretler.filter(z=>z.hesapId===h.id).length;
+    const kisiler=(h.kisiler||[]).map(k=>`<div class="person">
+      <div><b>${esc(k.ad)}</b>${k.gorev?` · ${esc(k.gorev)}`:''}<div class="d">${esc(k.tel)}${k.tel&&k.mail?' · ':''}${esc(k.mail)}</div></div>
+      <div style="display:flex;gap:4px;flex:none">
+        <button class="btn ghost sm" onclick="kisiFormAc(${h.id},${k.id})">Düzenle</button>
+        <button class="btn link" onclick="kisiSil(${h.id},${k.id})">sil</button>
+      </div></div>`).join('')
+      || `<p style="font-size:13.5px;color:var(--ink-soft)">Henüz kişi eklenmedi.</p>`;
+    return `<article class="rec">
+      <div class="rec-h"><h4>${esc(h.ad)}</h4><span class="price">${zs} ziyaret</span></div>
+      <div class="tags">
+        <span class="tag g">${esc(h.tur)}</span>
+        ${h.ozel?`<span class="tag">${esc(h.ozel)}</span>`:''}
+        ${(h.kademe||[]).map(k=>`<span class="tag">${esc(k)}</span>`).join('')}
+        ${h.il?`<span class="tag o">${esc(h.il)}${h.ilce?' / '+esc(h.ilce):''}</span>`:''}
+      </div>
+      ${h.adres?`<dl><dt>Adres</dt><dd>${esc(h.adres)}</dd></dl>`:''}
+      ${h.not?`<div class="note">${esc(h.not)}</div>`:''}
+      <div class="sub"><div class="sub-h">Kişiler</div>${kisiler}
+        <button class="btn ghost sm" style="margin-top:10px" onclick="kisiFormAc(${h.id})">Kişi ekle</button></div>
+      <div class="acts" style="margin-top:13px">
+        <button class="btn ghost sm" onclick="hesapDuzenle(${h.id})">Düzenle</button>
+        <button class="btn link" onclick="hesapSil(${h.id})">Sil</button>
+      </div>
+    </article>`;
+  }).join('') : `<div class="empty"><b>Henüz hesap yok</b><p>İlk okulu veya dağıtımcıyı ekleyerek başla.</p></div>`;
+}
+
+/* ---------- ziyaretler ---------- */
+function hesapEtiket(h){
+  const ek=[];
+  if((h.kademe||[]).length) ek.push(h.kademe.join(', '));
+  if(h.ozel) ek.push(h.ozel);
+  if(h.ilce) ek.push(h.ilce);
+  else if(h.il) ek.push(h.il);
+  return h.ad + (ek.length?' — '+ek.join(' · '):'');
+}
+function hesapAramaMetni(h){
+  return norm([h.ad,h.tur,h.ozel,h.il,h.ilce,...(h.kademe||[])].filter(Boolean).join(' '));
+}
+
+/* okul arama: birkaç harfte öneri listesi açılır, tıklanınca seçilir */
+function zHesapAra(){
+  const q=norm(zHesapArama.value.trim());
+  zHesapOneri.style.display='block';
+  if(q.length<2){
+    zHesapOneri.innerHTML=`<div class="s" style="padding:10px 12px">En az 2 harf yaz…</div>`;
+    return;
+  }
+  const r=hesaplar.filter(h=>hesapAramaMetni(h).includes(q))
+                  .sort((a,b)=>a.ad.localeCompare(b.ad,'tr')).slice(0,20);
+  zHesapOneri.innerHTML = r.length ? r.map(h=>`
+    <button type="button" onclick="zHesapSec(${h.id})">${esc(h.ad)}
+      <div class="s">${esc([h.tur,(h.kademe||[]).join(', '),h.ilce||h.il].filter(Boolean).join(' · ')||'—')}</div>
+    </button>`).join('')
+    : `<div class="s" style="padding:10px 12px">Eşleşen okul yok</div>`;
+}
+function zHesapSec(id){
+  const h=hesaplar.find(x=>x.id===id); if(!h)return;
+  zHesapSeciliId=id; zHesapArama.value=hesapEtiket(h);
+  zHesapOneri.style.display='none';
+  zHesapDegisti();
+}
+document.addEventListener('click',e=>{
+  if(!zHesapWrap || !zHesapWrap.contains(e.target)) { if(zHesapOneri) zHesapOneri.style.display='none'; }
+});
+
+function ziyaretAc(id){
+  if(!hesaplar.length){ alert('Önce Hesaplar sekmesinden bir hesap ekle.'); return; }
+  duzenlenenZiyaret = id ?? null;
+  const z = id!=null ? ziyaretler.find(x=>x.id===id) : null;
+  zFormBaslik.textContent = z ? 'Ziyareti düzenle' : 'Yeni ziyaret';
+  zHesapOneri.style.display='none';
+  if(z){
+    const h=hesaplar.find(x=>x.id===z.hesapId);
+    zHesapSeciliId=z.hesapId; zHesapArama.value=h?hesapEtiket(h):'(silinmiş okul)';
+    zKademeDoldur(z.kademe); zKisiDoldur(z.kisi);
+    zTarih.value=z.tarih; zNot.value=z.not;
+    zGorusmeTuruUyarla(z.gorusmeTuru);
+    secilenKitaplar=[...(z.kitaplar||[])];
+  }else{
+    zHesapSeciliId=null; zHesapArama.value='';
+    zKademeDoldur(); zKisiDoldur(); zTarih.valueAsDate=new Date();
+    zNot.value=''; secilenKitaplar=[];
+    zGorusmeTuruUyarla('Yüz yüze');
+  }
+  kitapListesiKapat(); secilenCiz();
+  yazarAraInput.value=''; yazarSonuc.innerHTML='';
+  ac('zForm'); zForm.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function zGorusmeTuruSec(deger,el){
+  zGorusmeTuruSecili=deger;
+  el.parentElement.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed','false'));
+  el.setAttribute('aria-pressed','true');
+}
+function zGorusmeTuruUyarla(deger){
+  zGorusmeTuruSecili = deger || 'Yüz yüze';
+  document.querySelectorAll('#zGorusmeTuruSec button').forEach(b=>{
+    b.setAttribute('aria-pressed', b.textContent===zGorusmeTuruSecili ? 'true' : 'false');
+  });
+}
+function zHesapDegisti(){ zKademeDoldur(); zKisiDoldur(); }
+
+/* hesabın kademeleri: ilkokul + ortaokul ise hangisine gidildiği seçilir */
+function zKademeDoldur(secili){
+  const h=hesaplar.find(x=>x.id===zHesapSeciliId);
+  const kd=(h&&h.kademe)||[];
+  zKademeWrap.style.display = kd.length?'block':'none';
+  if(!kd.length){ zKademe.innerHTML=''; return; }
+  zKademe.innerHTML = (kd.length>1?'<option value="">Tümü / belirtilmemiş</option>':'')
+    + kd.map(k=>`<option>${esc(k)}</option>`).join('');
+  if(secili && kd.includes(secili)) zKademe.value=secili;
+}
+
+/* hesap seçilince o hesabın kişileri gelir */
+function zKisiDoldur(secili){
+  const h=hesaplar.find(x=>x.id===zHesapSeciliId);
+  const ks=(h&&h.kisiler)||[];
+  zKisi.innerHTML = (ks.length?'':'<option value="">— kayıtlı kişi yok —</option>')
+    + ks.map(k=>`<option value="${esc(k.ad)}">${esc(k.ad)}${k.gorev?' · '+esc(k.gorev):''}</option>`).join('')
+    + '<option value="__yeni">+ Listede yok, elle yaz</option>';
+  if(secili && ks.some(k=>k.ad===secili)){ zKisi.value=secili; zKisiYeni.style.display='none'; zKisiYeni.value=''; }
+  else if(secili){ zKisi.value='__yeni'; zKisiYeni.style.display='block'; zKisiYeni.value=secili; }
+  else { zKisiYeni.style.display='none'; zKisiYeni.value=''; }
+}
+function zKisiDegisti(){
+  const yeni = zKisi.value==='__yeni';
+  zKisiYeni.style.display = yeni?'block':'none';
+  if(yeni) zKisiYeni.focus();
+}
+
+/* tikli kitap listesi */
+function panelKademeSeviyeleri(){
+  if(zKademeWrap.style.display!=='none' && zKademe.value && KADEME_SEV[zKademe.value])
+    return KADEME_SEV[zKademe.value];
+  const h=hesaplar.find(x=>x.id===zHesapSeciliId);
+  const kd=(h&&h.kademe)||[];
+  if(kd.length===1 && KADEME_SEV[kd[0]]) return KADEME_SEV[kd[0]];
+  if(kd.length>1){
+    const birlesim=[...new Set(kd.flatMap(k=>KADEME_SEV[k]||[]))];
+    return birlesim.length?birlesim:null;
+  }
+  return null;
+}
+function kitapListesiAc(){
+  kitapPanel.style.display='block'; kitapAcButon.style.display='none';
+  zSinif.innerHTML = '<option value="">Tüm sınıflar</option>'
+    + `<option value="[0]">Okul Öncesi</option>`
+    + `<option value="[1,2,3,4]">İlkokul (1-4)</option>`
+    + `<option value="[5,6,7,8]">Ortaokul (5-8)</option>`
+    + `<option value="[9]">Lise</option>`
+    + [1,2,3,4,5,6,7,8].map(n=>`<option value="[${n}]">${n}. Sınıf</option>`).join('');
+  zTur.innerHTML='<option value="">Tüm türler</option>'+
+    [...new Set(KITAPLAR.map(k=>k.turu))].sort((a,b)=>a.localeCompare(b,'tr'))
+      .map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
+  const varsayilan=panelKademeSeviyeleri();
+  zSinif.value = varsayilan ? JSON.stringify(varsayilan) : '';
+  zTur.value='';
+  zKitapAra.value=''; kitapListesiCiz(); zKitapAra.focus();
+}
+function kitapListesiKapat(){
+  kitapPanel.style.display='none'; kitapAcButon.style.display='flex';
+  kitapOzetCiz();
+}
+function kitapOzetCiz(){
+  kitapOzet.textContent = secilenKitaplar.length
+    ? `${secilenKitaplar.length} kitap seçili — değiştir`
+    : 'Kitap seç';
+}
+/* bu okulda bu kitap daha önce gösterilmiş mi (düzenlenen ziyaret hariç) */
+function kitapGosterimGecmisi(kitapId){
+  if(!zHesapSeciliId) return null;
+  const gecmis = ziyaretler.filter(z=>
+    z.hesapId===zHesapSeciliId && z.id!==duzenlenenZiyaret && (z.kitaplar||[]).includes(kitapId)
+  ).sort((a,b)=>b.tarih.localeCompare(a.tarih));
+  if(!gecmis.length) return null;
+  return {sonTarih:gecmis[0].tarih, sonKisi:gecmis[0].kisi, sayi:gecmis.length};
+}
+function yildizHtml(kitapId){
+  return kitapGosterimGecmisi(kitapId)
+    ? `<button type="button" class="yildiz" onmousedown="event.preventDefault()" onclick="event.stopPropagation();gosterimDetayGoster(${kitapId})" aria-label="Bu okulda daha önce gösterildi, detay için dokun">★</button>`
+    : '';
+}
+function gosterimDetayGoster(kitapId){
+  const g=kitapGosterimGecmisi(kitapId), k=KITAPLAR.find(x=>x.id===kitapId);
+  if(!g||!k) return;
+  const d=new Date(g.sonTarih).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'});
+  const tekrar = g.sayi>1 ? ` (toplam ${g.sayi} kez gösterildi)` : '';
+  alert(`${k.ad}\n\nBu okulda daha önce gösterilmiş.\nSon gösterim: ${d}${g.sonKisi?' — '+g.sonKisi:''}${tekrar}`);
+}
+function kitapSatiriHtml(k, yazariGoster){
+  const alt = yazariGoster ? `${esc(k.yazar)} · ${esc(k.turu)} · ${esc(k.sinif)}` : `${esc(k.turu)} · ${esc(k.sinif)}`;
+  return `<label>
+      <input type="checkbox" value="${k.id}" ${secilenKitaplar.includes(k.id)?'checked':''} onchange="kitapTikle(${k.id},this.checked)">
+      <span>${esc(k.ad)}${yildizHtml(k.id)}<span class="s">${alt}</span></span>
+    </label>`;
+}
+function kitapListesiCiz(){
+  const q=norm(zKitapAra.value.trim());
+  const sevler = zSinif.value ? JSON.parse(zSinif.value) : null;
+  const tr=zTur.value;
+  const r=KITAPLAR.filter(k=>{
+    if(sevler && !k.seviye.some(s=>sevler.includes(s))) return false;
+    if(tr && k.turu!==tr) return false;
+    if(q && !k._s.includes(q)) return false;
+    return true;
+  });
+  tikliListe.innerHTML = r.length ? r.map(k=>kitapSatiriHtml(k,true)).join('')
+    : `<div class="yok">Eşleşen kitap yok</div>`;
+  tikliSayiCiz();
+}
+function kitapTikle(id,acik){
+  if(acik){ if(!secilenKitaplar.includes(id)) secilenKitaplar.push(id); }
+  else secilenKitaplar=secilenKitaplar.filter(x=>x!==id);
+  tikliSayiCiz(); secilenCiz();
+}
+function tikliSayiCiz(){ tikliSayi.textContent=`${secilenKitaplar.length} seçili`; }
+
+function kitapCikar(id){
+  secilenKitaplar=secilenKitaplar.filter(x=>x!==id);
+  const cb=tikliListe.querySelector(`input[value="${id}"]`);
+  if(cb) cb.checked=false;
+  tikliSayiCiz(); secilenCiz();
+}
+function secilenCiz(){
+  zSecili.innerHTML=secilenKitaplar.map(id=>{
+    const k=KITAPLAR.find(x=>x.id===id); if(!k)return '';
+    return `<span class="chip">${esc(k.ad)}<button type="button" onclick="kitapCikar(${id})" aria-label="Çıkar">×</button></span>`;
+  }).join('');
+  kitapOzetCiz();
+  yazarCheckboxSenkron();
+}
+
+/* yazara göre ara: sınıf/tür filtresinden bağımsız, o yazarın tüm kitapları */
+function yazarAra(){
+  const q=norm(yazarAraInput.value.trim());
+  if(q.length<3){ yazarSonuc.innerHTML=''; return; }
+  const yazarlar=[...new Set(KITAPLAR.map(k=>k.yazar).filter(Boolean))];
+  const eslesen=yazarlar.filter(y=>norm(y).includes(q)).sort((a,b)=>a.localeCompare(b,'tr'));
+  if(!eslesen.length){
+    yazarSonuc.innerHTML=`<div class="s" style="padding:10px 0 0">Eşleşen yazar yok</div>`;
+    return;
+  }
+  yazarSonuc.innerHTML=eslesen.map(yazar=>{
+    const kitaplariYazar=KITAPLAR.filter(k=>k.yazar===yazar).sort((a,b)=>a.ad.localeCompare(b.ad,'tr'));
+    return `<div style="margin-top:10px">
+      <div class="sub-h">${esc(yazar)} — ${kitaplariYazar.length} kitap</div>
+      <div class="tikli">${kitaplariYazar.map(k=>kitapSatiriHtml(k,false)).join('')}</div>
+    </div>`;
+  }).join('');
+}
+function yazarCheckboxSenkron(){
+  if(typeof yazarSonuc==='undefined' || !yazarSonuc) return;
+  yazarSonuc.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+    cb.checked = secilenKitaplar.includes(Number(cb.value));
+  });
+}
+async function ziyaretKaydet(){
+  if(!zHesapSeciliId){ alert('Listeden bir okul seç.'); zHesapArama.focus(); return; }
+  if(!zTarih.value){ alert('Tarih gerekli.'); zTarih.focus(); return; }
+  const kisi = zKisi.value==='__yeni' ? zKisiYeni.value.trim() : zKisi.value;
+  const veri={
+    hesapId:zHesapSeciliId, tarih:zTarih.value,
+    kademe: zKademeWrap.style.display==='none' ? '' : zKademe.value,
+    gorusmeTuru: zGorusmeTuruSecili,
+    kisi, not:zNot.value.trim(),
+    kitaplar:[...secilenKitaplar]
+  };
+  let ziyaretId;
+  if(duzenlenenZiyaret!=null){
+    ziyaretId=duzenlenenZiyaret;
+    ziyaretler=ziyaretler.map(z=>z.id===duzenlenenZiyaret?{...z,...veri,duzenleyen:ben}:z);
+  }else{
+    ziyaretId=yeniId();
+    ziyaretler.push({id:ziyaretId,...veri,ekleyen:ben});
+  }
+  await yaz('ziyaretler',ziyaretler);
+  await secimleriSenkronize(ziyaretId, zHesapSeciliId, zTarih.value, [...secilenKitaplar]);
+  duzenlenenZiyaret=null; secilenKitaplar=[]; secilenCiz(); kapat('zForm'); ziyaretCiz();
+}
+async function ziyaretSil(id){
+  if(!confirm('Bu ziyaret kaydı silinecek. Onaylıyor musun?'))return;
+  ziyaretler=ziyaretler.filter(z=>z.id!==id); await yaz('ziyaretler',ziyaretler);
+  secimler=secimler.filter(s=>s.ziyaretId!==id); await yaz('secimler',secimler);
+  ziyaretCiz();
+}
+let ziyaretOkulSecili=null;
+function ziyaretOkulSec(id,el){
+  ziyaretOkulSecili=id;
+  ziyaretOkulFiltre.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed','false'));
+  el.setAttribute('aria-pressed','true');
+  ziyaretCiz(true);
+}
+function ziyaretCiz(korunanFiltre){
+  if(!korunanFiltre){
+    const okulIdleri=[...new Set(ziyaretler.map(z=>z.hesapId))];
+    const okullar=okulIdleri.map(id=>hesaplar.find(h=>h.id===id)).filter(Boolean)
+      .sort((a,b)=>a.ad.localeCompare(b.ad,'tr'));
+    ziyaretOkulFiltreWrap.style.display = okullar.length>1?'block':'none';
+    ziyaretOkulFiltre.innerHTML = `<button aria-pressed="${ziyaretOkulSecili===null?'true':'false'}" onclick="ziyaretOkulSec(null,this)">Hepsi</button>`+
+      okullar.map(h=>{
+        const n=ziyaretler.filter(z=>z.hesapId===h.id).length;
+        return `<button aria-pressed="${ziyaretOkulSecili===h.id?'true':'false'}" onclick="ziyaretOkulSec(${h.id},this)">${esc(h.ad)} (${n})</button>`;
+      }).join('');
+  }
+  const s=[...ziyaretler]
+    .filter(z=>ziyaretOkulSecili===null||z.hesapId===ziyaretOkulSecili)
+    .sort((a,b)=>b.tarih.localeCompare(a.tarih));
+  ziyaretListe.innerHTML = s.length ? s.map(z=>{
+    const h=hesaplar.find(x=>x.id===z.hesapId);
+    const kt=(z.kitaplar||[]).map(id=>{
+      const k=KITAPLAR.find(x=>x.id===id);
+      return k?`<span class="tag">${esc(k.ad)}</span>`:'';
+    }).join('');
+    const d=new Date(z.tarih).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'});
+    return `<article class="rec">
+      <div class="rec-h"><h4>${esc(h?h.ad:'Silinmiş hesap')}</h4><span class="barcode">${esc(d)}</span></div>
+      <div class="tags">
+        <span class="tag g">${esc(z.gorusmeTuru||'Yüz yüze')}</span>
+        ${z.kademe?`<span class="tag">${esc(z.kademe)}</span>`:''}
+        ${z.kisi?`<span class="tag">${esc(z.kisi)}</span>`:''}
+        <span class="tag">${esc(z.ekleyen)}</span>
+      </div>
+      ${z.not?`<div class="note">${esc(z.not)}</div>`:''}
+      ${kt?`<div class="sub"><div class="sub-h">Gösterilen kitaplar</div><div class="tags">${kt}</div></div>`:''}
+      <div class="acts" style="margin-top:11px">
+        <button class="btn ghost sm" onclick="ziyaretAc(${z.id})">Düzenle</button>
+        <button class="btn link" onclick="ziyaretSil(${z.id})">Sil</button>
+      </div>
+    </article>`;
+  }).join('') : `<div class="empty"><b>Henüz ziyaret yok</b><p>Bir okula gittikten sonra görüşmeyi buraya yaz.</p></div>`;
+}
+
+const IL_ILCE = {"Adana":["Aladağ","Ceyhan","Çukurova","Feke","İmamoğlu","Karaisalı","Karataş","Kozan","Pozantı","Saimbeyli","Sarıçam","Seyhan","Tufanbeyli","Yumurtalık","Yüreğir"],"Adıyaman":["Besni","Çelikhan","Gerger","Gölbaşı","Kahta","Merkez","Samsat","Sincik","Tut"],"Afyonkarahisar":["Başmakçı","Bayat","Bolvadin","Çay","Çobanlar","Dazkırı","Dinar","Emirdağ","Evciler","Hocalar","İhsaniye","İscehisar","Kızılören","Merkez","Sandıklı","Sinanpaşa","Sultandağı","Şuhut"],"Ağrı":["Diyadin","Doğubayazıt","Eleşkirt","Hamur","Merkez","Patnos","Taşlıçay","Tutak"],"Aksaray":["Ağaçören","Eskil","Gülağaç","Güzelyurt","Merkez","Ortaköy","Sarıyahşi","Sultanhanı"],"Amasya":["Göynücek","Gümüşhacıköy","Hamamözü","Merkez","Merzifon","Suluova","Taşova"],"Ankara":["Akyurt","Altındağ","Ayaş","Bala","Beypazarı","Çamlıdere","Çankaya","Çubuk","Elmadağ","Etimesgut","Evren","Gölbaşı","Güdül","Haymana","Kahramankazan","Kalecik","Keçiören","Kızılcahamam","Mamak","Nallıhan","Polatlı","Pursaklar","Sincan","Şereflikoçhisar","Yenimahalle"],"Antalya":["Akseki","Aksu","Alanya","Demre","Döşemealtı","Elmalı","Finike","Gazipaşa","Gündoğmuş","İbradı","Kaş","Kemer","Kepez","Konyaaltı","Korkuteli","Kumluca","Manavgat","Muratpaşa","Serik"],"Ardahan":["Çıldır","Damal","Göle","Hanak","Merkez","Posof"],"Artvin":["Ardanuç","Arhavi","Borçka","Hopa","Kemalpaşa","Merkez","Murgul","Şavşat","Yusufeli"],"Aydın":["Bozdoğan","Buharkent","Çine","Didim","Efeler","Germencik","İncirliova","Karacasu","Karpuzlu","Koçarlı","Köşk","Kuşadası","Kuyucak","Nazilli","Söke","Sultanhisar","Yenipazar"],"Balıkesir":["Altıeylül","Ayvalık","Balya","Bandırma","Bigadiç","Burhaniye","Dursunbey","Edremit","Erdek","Gömeç","Gönen","Havran","İvrindi","Karesi","Kepsut","Manyas","Marmara","Savaştepe","Sındırgı","Susurluk"],"Bartın":["Amasra","Kurucaşile","Merkez","Ulus"],"Batman":["Beşiri","Gercüş","Hasankeyf","Kozluk","Merkez","Sason"],"Bayburt":["Aydıntepe","Demirözü","Merkez"],"Bilecik":["Bozüyük","Gölpazarı","İnhisar","Merkez","Osmaneli","Pazaryeri","Söğüt","Yenipazar"],"Bingöl":["Adaklı","Genç","Karlıova","Kiğı","Merkez","Solhan","Yayladere","Yedisu"],"Bitlis":["Adilcevaz","Ahlat","Güroymak","Hizan","Merkez","Mutki","Tatvan"],"Bolu":["Dörtdivan","Gerede","Göynük","Kıbrıscık","Mengen","Merkez","Mudurnu","Seben","Yeniçağa"],"Burdur":["Ağlasun","Altınyayla","Bucak","Çavdır","Çeltikçi","Gölhisar","Karamanlı","Kemer","Merkez","Tefenni","Yeşilova"],"Bursa":["Büyükorhan","Gemlik","Gürsu","Harmancık","İnegöl","İznik","Karacabey","Keles","Kestel","Mudanya","Mustafakemalpaşa","Nilüfer","Orhaneli","Orhangazi","Osmangazi","Yenişehir","Yıldırım"],"Çanakkale":["Ayvacık","Bayramiç","Biga","Bozcaada","Çan","Eceabat","Ezine","Gelibolu","Gökçeada","Lapseki","Merkez","Yenice"],"Çankırı":["Atkaracalar","Bayramören","Çerkeş","Eldivan","Ilgaz","Kızılırmak","Korgun","Kurşunlu","Merkez","Orta","Şabanözü","Yapraklı"],"Çorum":["Alaca","Bayat","Boğazkale","Dodurga","İskilip","Kargı","Laçin","Mecitözü","Merkez","Oğuzlar","Ortaköy","Osmancık","Sungurlu","Uğurludağ"],"Denizli":["Acıpayam","Babadağ","Baklan","Bekilli","Beyağaç","Bozkurt","Buldan","Çal","Çameli","Çardak","Çivril","Güney","Honaz","Kale","Merkezefendi","Pamukkale","Sarayköy","Serinhisar","Tavas"],"Diyarbakır":["Bağlar","Bismil","Çermik","Çınar","Çüngüş","Dicle","Eğil","Ergani","Hani","Hazro","Kayapınar","Kocaköy","Kulp","Lice","Silvan","Sur","Yenişehir"],"Düzce":["Akçakoca","Cumayeri","Çilimli","Gölyaka","Gümüşova","Kaynaşlı","Merkez","Yığılca"],"Edirne":["Enez","Havsa","İpsala","Keşan","Lalapaşa","Meriç","Merkez","Süloğlu","Uzunköprü"],"Elazığ":["Ağın","Alacakaya","Arıcak","Baskil","Karakoçan","Keban","Kovancılar","Maden","Merkez","Palu","Sivrice"],"Erzincan":["Çayırlı","İliç","Kemah","Kemaliye","Merkez","Otlukbeli","Refahiye","Tercan","Üzümlü"],"Erzurum":["Aşkale","Aziziye","Çat","Hınıs","Horasan","İspir","Karaçoban","Karayazı","Köprüköy","Narman","Oltu","Olur","Palandöken","Pasinler","Pazaryolu","Şenkaya","Tekman","Tortum","Uzundere","Yakutiye"],"Eskişehir":["Alpu","Beylikova","Çifteler","Günyüzü","Han","İnönü","Mahmudiye","Mihalgazi","Mihalıççık","Odunpazarı","Sarıcakaya","Seyitgazi","Sivrihisar","Tepebaşı"],"Gaziantep":["Araban","İslahiye","Karkamış","Nizip","Nurdağı","Oğuzeli","Şahinbey","Şehitkamil","Yavuzeli"],"Giresun":["Alucra","Bulancak","Çamoluk","Çanakçı","Dereli","Doğankent","Espiye","Eynesil","Görele","Güce","Keşap","Merkez","Piraziz","Şebinkarahisar","Tirebolu","Yağlıdere"],"Gümüşhane":["Kelkit","Köse","Kürtün","Merkez","Şiran","Torul"],"Hakkari":["Çukurca","Derecik","Merkez","Şemdinli","Yüksekova"],"Hatay":["Altınözü","Antakya","Arsuz","Belen","Defne","Dörtyol","Erzin","Hassa","İskenderun","Kırıkhan","Kumlu","Payas","Reyhanlı","Samandağ","Yayladağı"],"Iğdır":["Aralık","Karakoyunlu","Merkez","Tuzluca"],"Isparta":["Aksu","Atabey","Eğirdir","Gelendost","Gönen","Keçiborlu","Merkez","Senirkent","Sütçüler","Şarkikaraağaç","Uluborlu","Yalvaç","Yenişarbademli"],"İstanbul":["Adalar","Arnavutköy","Ataşehir","Avcılar","Bağcılar","Bahçelievler","Bakırköy","Başakşehir","Bayrampaşa","Beşiktaş","Beykoz","Beylikdüzü","Beyoğlu","Büyükçekmece","Çatalca","Çekmeköy","Esenler","Esenyurt","Eyüpsultan","Fatih","Gaziosmanpaşa","Güngören","Kadıköy","Kağıthane","Kartal","Küçükçekmece","Maltepe","Pendik","Sancaktepe","Sarıyer","Silivri","Sultanbeyli","Sultangazi","Şile","Şişli","Tuzla","Ümraniye","Üsküdar","Zeytinburnu"],"İzmir":["Aliağa","Balçova","Bayındır","Bayraklı","Bergama","Beydağ","Bornova","Buca","Çeşme","Çiğli","Dikili","Foça","Gaziemir","Güzelbahçe","Karabağlar","Karaburun","Karşıyaka","Kemalpaşa","Kınık","Kiraz","Konak","Menderes","Menemen","Narlıdere","Ödemiş","Seferihisar","Selçuk","Tire","Torbalı","Urla"],"Kahramanmaraş":["Afşin","Andırın","Çağlayancerit","Dulkadiroğlu","Ekinözü","Elbistan","Göksun","Nurhak","Onikişubat","Pazarcık","Türkoğlu"],"Karabük":["Eflani","Eskipazar","Merkez","Ovacık","Safranbolu","Yenice"],"Karaman":["Ayrancı","Başyayla","Ermenek","Kazımkarabekir","Merkez","Sarıveliler"],"Kars":["Akyaka","Arpaçay","Digor","Kağızman","Merkez","Sarıkamış","Selim","Susuz"],"Kastamonu":["Abana","Ağlı","Araç","Azdavay","Bozkurt","Cide","Çatalzeytin","Daday","Devrekani","Doğanyurt","Hanönü","İhsangazi","İnebolu","Küre","Merkez","Pınarbaşı","Seydiler","Şenpazar","Taşköprü","Tosya"],"Kayseri":["Akkışla","Bünyan","Develi","Felahiye","Hacılar","İncesu","Kocasinan","Melikgazi","Özvatan","Pınarbaşı","Sarıoğlan","Sarız","Talas","Tomarza","Yahyalı","Yeşilhisar"],"Kırıkkale":["Bahşılı","Balışeyh","Çelebi","Delice","Karakeçili","Keskin","Merkez","Sulakyurt","Yahşihan"],"Kırklareli":["Babaeski","Demirköy","Kofçaz","Lüleburgaz","Merkez","Pehlivanköy","Pınarhisar","Vize"],"Kırşehir":["Akçakent","Akpınar","Boztepe","Çiçekdağı","Kaman","Merkez","Mucur"],"Kilis":["Elbeyli","Merkez","Musabeyli","Polateli"],"Kocaeli":["Başiskele","Çayırova","Darıca","Derince","Dilovası","Gebze","Gölcük","İzmit","Kandıra","Karamürsel","Kartepe","Körfez"],"Konya":["Ahırlı","Akören","Akşehir","Altınekin","Beyşehir","Bozkır","Cihanbeyli","Çeltik","Çumra","Derbent","Derebucak","Doğanhisar","Emirgazi","Ereğli","Güneysınır","Hadim","Halkapınar","Hüyük","Ilgın","Kadınhanı","Karapınar","Karatay","Kulu","Meram","Sarayönü","Selçuklu","Seydişehir","Taşkent","Tuzlukçu","Yalıhüyük","Yunak"],"Kütahya":["Altıntaş","Aslanapa","Çavdarhisar","Domaniç","Dumlupınar","Emet","Gediz","Hisarcık","Merkez","Pazarlar","Simav","Şaphane","Tavşanlı"],"Malatya":["Akçadağ","Arapgir","Arguvan","Battalgazi","Darende","Doğanşehir","Doğanyol","Hekimhan","Kale","Kuluncak","Pütürge","Yazıhan","Yeşilyurt"],"Manisa":["Ahmetli","Akhisar","Alaşehir","Demirci","Gölmarmara","Gördes","Kırkağaç","Köprübaşı","Kula","Salihli","Sarıgöl","Saruhanlı","Selendi","Soma","Şehzadeler","Turgutlu","Yunusemre"],"Mardin":["Artuklu","Dargeçit","Derik","Kızıltepe","Mazıdağı","Midyat","Nusaybin","Ömerli","Savur","Yeşilli"],"Mersin":["Akdeniz","Anamur","Aydıncık","Bozyazı","Çamlıyayla","Erdemli","Gülnar","Mezitli","Mut","Silifke","Tarsus","Toroslar","Yenişehir"],"Muğla":["Bodrum","Dalaman","Datça","Fethiye","Kavaklıdere","Köyceğiz","Marmaris","Menteşe","Milas","Ortaca","Seydikemer","Ula","Yatağan"],"Muş":["Bulanık","Hasköy","Korkut","Malazgirt","Merkez","Varto"],"Nevşehir":["Acıgöl","Avanos","Derinkuyu","Gülşehir","Hacıbektaş","Kozaklı","Merkez","Ürgüp"],"Niğde":["Altunhisar","Bor","Çamardı","Çiftlik","Merkez","Ulukışla"],"Ordu":["Akkuş","Altınordu","Aybastı","Çamaş","Çatalpınar","Çaybaşı","Fatsa","Gölköy","Gülyalı","Gürgentepe","İkizce","Kabadüz","Kabataş","Korgan","Kumru","Mesudiye","Perşembe","Ulubey","Ünye"],"Osmaniye":["Bahçe","Düziçi","Hasanbeyli","Kadirli","Merkez","Sumbas","Toprakkale"],"Rize":["Ardeşen","Çamlıhemşin","Çayeli","Derepazarı","Fındıklı","Güneysu","Hemşin","İkizdere","İyidere","Kalkandere","Merkez","Pazar"],"Sakarya":["Adapazarı","Akyazı","Arifiye","Erenler","Ferizli","Geyve","Hendek","Karapürçek","Karasu","Kaynarca","Kocaali","Pamukova","Sapanca","Serdivan","Söğütlü","Taraklı"],"Samsun":["Alaçam","Asarcık","Atakum","Ayvacık","Bafra","Canik","Çarşamba","Havza","İlkadım","Kavak","Ladik","Salıpazarı","Tekkeköy","Terme","Vezirköprü","Yakakent","19 Mayıs"],"Siirt":["Baykan","Eruh","Kurtalan","Merkez","Pervari","Şirvan","Tillo"],"Sinop":["Ayancık","Boyabat","Dikmen","Durağan","Erfelek","Gerze","Merkez","Saraydüzü","Türkeli"],"Sivas":["Akıncılar","Altınyayla","Divriği","Doğanşar","Gemerek","Gölova","Gürün","Hafik","İmranlı","Kangal","Koyulhisar","Merkez","Suşehri","Şarkışla","Ulaş","Yıldızeli","Zara"],"Şanlıurfa":["Akçakale","Birecik","Bozova","Ceylanpınar","Eyyübiye","Halfeti","Haliliye","Harran","Hilvan","Karaköprü","Siverek","Suruç","Viranşehir"],"Şırnak":["Beytüşşebap","Cizre","Güçlükonak","İdil","Merkez","Silopi","Uludere"],"Tekirdağ":["Çerkezköy","Çorlu","Ergene","Hayrabolu","Kapaklı","Malkara","Marmaraereğlisi","Muratlı","Saray","Süleymanpaşa","Şarköy"],"Tokat":["Almus","Artova","Başçiftlik","Erbaa","Merkez","Niksar","Pazar","Reşadiye","Sulusaray","Turhal","Yeşilyurt","Zile"],"Trabzon":["Akçaabat","Araklı","Arsin","Beşikdüzü","Çarşıbaşı","Çaykara","Dernekpazarı","Düzköy","Hayrat","Köprübaşı","Maçka","Of","Ortahisar","Sürmene","Şalpazarı","Tonya","Vakfıkebir","Yomra"],"Tunceli":["Çemişgezek","Hozat","Mazgirt","Merkez","Nazımiye","Ovacık","Pertek","Pülümür"],"Uşak":["Banaz","Eşme","Karahallı","Merkez","Sivaslı","Ulubey"],"Van":["Bahçesaray","Başkale","Çaldıran","Çatak","Edremit","Erciş","Gevaş","Gürpınar","İpekyolu","Muradiye","Özalp","Saray","Tuşba"],"Yalova":["Altınova","Armutlu","Çınarcık","Çiftlikköy","Merkez","Termal"],"Yozgat":["Akdağmadeni","Aydıncık","Boğazlıyan","Çandır","Çayıralan","Çekerek","Kadışehri","Merkez","Saraykent","Sarıkaya","Sorgun","Şefaatli","Yenifakılı","Yerköy"],"Zonguldak":["Alaplı","Çaycuma","Devrek","Ereğli","Gökçebey","Kilimli","Kozlu","Merkez"]};
+
+function ilDoldur(il,ilce){
+  hIl.innerHTML='<option value="">— seçiniz —</option>'+
+    Object.keys(IL_ILCE).map(i=>`<option>${esc(i)}</option>`).join('');
+  if(il && IL_ILCE[il]) hIl.value=il;
+  ilceDoldur(ilce);
+}
+function ilceDoldur(secili){
+  const list=IL_ILCE[hIl.value]||[];
+  hIlce.disabled=!list.length;
+  hIlce.innerHTML=`<option value="">${list.length?'— seçiniz —':'önce il seç'}</option>`+
+    list.map(i=>`<option>${esc(i)}</option>`).join('');
+  if(secili && list.includes(secili)) hIlce.value=secili;
+}
+
+/* ---------- seçilen kitaplar (ziyaretlerden otomatik türer) ---------- */
+/* ÖNEMLİ MİMARİ NOT — ziyaretler.kitaplar ile secimler tablosunun ilişkisi:
+   "ziyaretler.kitaplar" (jsonb dizi) TEK ana kaynaktır — kullanıcının ziyaret formunda
+   elle seçtiği "gösterilen kitaplar" listesi buraya yazılır.
+   "secimler" tablosu bundan OTOMATİK türer; kullanıcı oraya doğrudan kitap ekleyip
+   çıkaramaz, sadece o türeyen kayıtların üzerine "satıldı mı / not" gibi ek bilgi girer.
+   Bu fonksiyon, her ziyaret kaydedildiğinde iki tabloyu birbirine eşitler:
+   listeden çıkan kitabın secimler kaydı silinir, yeni eklenenin kaydı açılır,
+   üzerinde zaten girilmiş "satıldı/not" bilgisi olan kayıtlara dokunulmaz. */
+async function secimleriSenkronize(ziyaretId, hesapId, tarih, kitapListesi){
+  const oncekiKitapIdler = secimler.filter(s=>s.ziyaretId===ziyaretId).map(s=>s.kitapId);
+  // artık gösterilenler arasında olmayan kitapların kaydı silinir
+  secimler = secimler.filter(s=> s.ziyaretId!==ziyaretId || kitapListesi.includes(s.kitapId));
+  // yeni gösterilen kitaplar için kayıt açılır; var olanların hesap/tarih bilgisi güncellenir
+  kitapListesi.forEach(kitapId=>{
+    if(oncekiKitapIdler.includes(kitapId)){
+      secimler = secimler.map(s => (s.ziyaretId===ziyaretId && s.kitapId===kitapId) ? {...s, hesapId, tarih} : s);
+    }else{
+      secimler.push({id:yeniId(), ziyaretId, hesapId, kitapId, tarih, satildi:false, not:''});
+    }
+  });
+  await yaz('secimler', secimler);
+}
+function secimCiz(){
+  const s=[...secimler].sort((a,b)=>b.tarih.localeCompare(a.tarih));
+  secilenListe.innerHTML = s.length ? s.map(kayit=>{
+    const k=KITAPLAR.find(x=>x.id===kayit.kitapId);
+    const h=hesaplar.find(x=>x.id===kayit.hesapId);
+    const d=new Date(kayit.tarih).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'});
+    return `<article class="rec">
+      <div class="rec-h"><h4>${esc(k?k.ad:'Silinmiş kitap')}</h4><span class="barcode">${esc(d)}</span></div>
+      <div class="tags">
+        <span class="tag">${esc(h?h.ad:'Silinmiş okul')}</span>
+        ${h&&h.adres?`<span class="tag o">${esc(h.adres)}</span>`:''}
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-weight:600;font-size:14px">
+        <input type="checkbox" ${kayit.satildi?'checked':''} onchange="secimSatildiTikle(${kayit.id},this.checked)">
+        Satıldı
+      </label>
+      <textarea placeholder="Not: adet, eğitim-öğretim yılı, teslimat tarihi…" style="margin-top:9px;min-height:60px"
+        onblur="secimNotKaydet(${kayit.id},this.value)">${esc(kayit.not)}</textarea>
+    </article>`;
+  }).join('') : `<div class="empty"><b>Henüz kayıt yok</b><p>Bir ziyarette kitap gösterip kaydedince burada görünür.</p></div>`;
+}
+async function secimSatildiTikle(id, deger){
+  secimler = secimler.map(s=>s.id===id?{...s,satildi:deger}:s);
+  await yaz('secimler', secimler);
+}
+async function secimNotKaydet(id, deger){
+  secimler = secimler.map(s=>s.id===id?{...s,not:deger}:s);
+  await yaz('secimler', secimler);
+}
+
+/* ---------- raporlar ---------- */
+let raporIlSecili=null;
+function raporUygunHesapIdleri(){
+  if(raporIlSecili===null) return null;
+  return new Set(hesaplar.filter(h=>h.il===raporIlSecili).map(h=>h.id));
+}
+function raporIlSec(il,el){
+  raporIlSecili=il;
+  raporIlFiltre.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed','false'));
+  el.setAttribute('aria-pressed','true');
+  raporGosterimCiz(); raporKitabaGoreAra();
+}
+function raporCiz(){
+  const iller=[...new Set(hesaplar.map(h=>h.il).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'tr'));
+  raporIlFiltreWrap.style.display = iller.length>1?'block':'none';
+  raporIlFiltre.innerHTML = `<button aria-pressed="${raporIlSecili===null?'true':'false'}" onclick="raporIlSec(null,this)">Hepsi</button>`+
+    iller.map(i=>`<button aria-pressed="${raporIlSecili===i?'true':'false'}" onclick="raporIlSec('${esc(i)}',this)">${esc(i)}</button>`).join('');
+  raporGosterimCiz();
+  raporKitabaGoreAra();
+}
+function raporGosterimCiz(){
+  const q=norm(raporAra.value.trim());
+  const uygunHesap=raporUygunHesapIdleri();
+  let kayitlar=[];
+  ziyaretler.forEach(z=>{
+    if(uygunHesap && !uygunHesap.has(z.hesapId)) return;
+    (z.kitaplar||[]).forEach(kid=>{
+      const k=KITAPLAR.find(x=>x.id===kid); if(!k) return;
+      if(q && !k._s.includes(q)) return;
+      const h=hesaplar.find(x=>x.id===z.hesapId);
+      kayitlar.push({kitapAdi:k.ad, okulAdi:h?h.ad:'Silinmiş hesap', tarih:z.tarih});
+    });
+  });
+  kayitlar.sort((a,b)=>b.tarih.localeCompare(a.tarih));
+  raporGosterimListe.innerHTML = kayitlar.length ? kayitlar.map(r=>{
+    const d=new Date(r.tarih).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'});
+    return `<div class="rapor-satir">
+      <span class="rs-kitap">${esc(r.kitapAdi)}</span>
+      <span class="rs-okul">${esc(r.okulAdi)}</span>
+      <span class="rs-tarih">${esc(d)}</span>
+    </div>`;
+  }).join('') : `<div class="empty"><b>Kayıt yok</b><p>Henüz gösterilen kitap yok.</p></div>`;
+}
+function raporKitabaGoreAra(){
+  const q=norm(raporKitapAra.value.trim());
+  if(q.length<2){ raporKitabaGoreSonuc.innerHTML=''; return; }
+  const uygunHesap=raporUygunHesapIdleri();
+  const eslesenKitaplar=KITAPLAR.filter(k=>k._s.includes(q)).sort((a,b)=>a.ad.localeCompare(b.ad,'tr'));
+  if(!eslesenKitaplar.length){
+    raporKitabaGoreSonuc.innerHTML=`<p style="font-size:13.5px;color:var(--ink-soft)">Eşleşen kitap yok</p>`;
+    return;
+  }
+  raporKitabaGoreSonuc.innerHTML = eslesenKitaplar.map(k=>{
+    let secenler=[];
+    secimler.forEach(s=>{
+      if(s.kitapId!==k.id || !s.satildi) return;
+      if(uygunHesap && !uygunHesap.has(s.hesapId)) return;
+      const h=hesaplar.find(x=>x.id===s.hesapId);
+      secenler.push({okulAdi:h?h.ad:'Silinmiş hesap', tarih:s.tarih});
+    });
+    secenler.sort((a,b)=>b.tarih.localeCompare(a.tarih));
+    const listeHtml = secenler.length ? secenler.map(s=>{
+      const d=new Date(s.tarih).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'});
+      return `<div class="rapor-satir"><span class="rs-okul">${esc(s.okulAdi)}</span><span class="rs-tarih">${esc(d)}</span></div>`;
+    }).join('') : `<p style="font-size:13px;color:var(--ink-soft);padding:6px 0">Henüz hiçbir okul seçmemiş.</p>`;
+    return `<div style="margin-top:14px">
+      <div class="sub-h">${esc(k.ad)} — ${secenler.length} okul seçti</div>
+      ${listeHtml}
+    </div>`;
+  }).join('');
+}
+
+/* ---------- ayarlar ---------- */
+function satir(metin,duzenle,sil,uyari){
+  return `<div class="person">
+    <div><b>${esc(metin)}</b>${uyari?`<div class="d">${esc(uyari)}</div>`:''}</div>
+    <div style="display:flex;gap:4px;flex:none">
+      <button class="btn ghost sm" onclick="${duzenle}">Düzenle</button>
+      <button class="btn link" onclick="${sil}">sil</button>
+    </div></div>`;
+}
+function kullaniciSatiri(k,i){
+  const n=ziyaretler.filter(z=>z.ekleyen===k).length;
+  const kisitli=kullaniciRolu(k)==='kisitli';
+  return `<div class="person">
+    <div>
+      <b>${esc(k)}</b>
+      <span class="tag ${kisitli?'':'g'}" style="margin-left:6px">${kisitli?'Kısıtlı — sadece Seçilen':'Tam yetkili'}</span>
+      ${n?`<div class="d">${n} ziyaret kaydı var</div>`:''}
+    </div>
+    <div style="display:flex;gap:4px;flex:none;flex-wrap:wrap;justify-content:flex-end">
+      <button class="btn ghost sm" onclick="kullaniciRolDegistir(${i})">${kisitli?'Tam yetkili yap':'Kısıtla'}</button>
+      <button class="btn ghost sm" onclick="kullaniciDuzenle(${i})">Düzenle</button>
+      <button class="btn link" onclick="kullaniciSil(${i})">sil</button>
+    </div></div>`;
+}
+function ayarCiz(){
+  kullaniciListe.innerHTML=kullanicilar.map((k,i)=>kullaniciSatiri(k,i)).join('')
+    || `<p style="font-size:13.5px;color:var(--ink-soft)">Kullanıcı yok.</p>`;
+
+  durumListe.innerHTML=durumlar.map((d,i)=>{
+    const n=ziyaretler.filter(z=>z.durum===d).length;
+    return satir(d,`durumDuzenle(${i})`,`durumSil(${i})`, n?`${n} ziyarette kullanılıyor`:'');
+  }).join('') || `<p style="font-size:13.5px;color:var(--ink-soft)">Durum yok.</p>`;
+
+  hesapTuruListe.innerHTML=hesapTurleri.map((t,i)=>{
+    const n=hesaplar.filter(h=>h.tur===t).length;
+    return satir(t,`hesapTuruDuzenle(${i})`,`hesapTuruSil(${i})`, n?`${n} hesap bu türde`:'');
+  }).join('') || `<p style="font-size:13.5px;color:var(--ink-soft)">Tür yok.</p>`;
+
+  ozet.innerHTML=[
+    `${KITAPLAR.length} kitap`,`${hesaplar.length} hesap`,
+    `${hesaplar.reduce((t,h)=>t+(h.kisiler||[]).length,0)} kişi`,
+    `${ziyaretler.length} ziyaret`, `${secimler.length} seçilen kayıt`
+  ].map(t=>`<span class="tag g">${t}</span>`).join('');
+}
+
+async function kullaniciRolDegistir(i){
+  const isim=kullanicilar[i];
+  const simdikiKisitli = kullaniciRolu(isim)==='kisitli';
+  if(!simdikiKisitli){
+    if(!confirm(`"${isim}" artık sadece "Seçilen" sekmesini görecek, başka hiçbir yere erişemeyecek. Onaylıyor musun?`))return;
+    kullaniciRolleri[isim]='kisitli';
+  }else{
+    kullaniciRolleri[isim]='tam';
+  }
+  await yaz('kullaniciRolleri',kullaniciRolleri);
+  if(ben===isim) gir(isim); // o an giriş yapmış kendi rolünü değiştirdiyse arayüz anında güncellensin
+  ayarCiz();
+}
+async function kullaniciEkle(){
+  const ad=yeniKullanici.value.trim();
+  if(!ad) return;
+  if(kullanicilar.some(k=>norm(k)===norm(ad))){ alert('Bu isim zaten var.'); return; }
+  kullanicilar.push(ad); await yaz('kullanicilar',kullanicilar);
+  if(yeniKullaniciKisitli.checked){
+    kullaniciRolleri[ad]='kisitli'; await yaz('kullaniciRolleri',kullaniciRolleri);
+  }
+  yeniKullanici.value=''; yeniKullaniciKisitli.checked=false;
+  girisCiz(); ayarCiz();
+}
+async function kullaniciDuzenle(i){
+  const yeni=prompt('Kullanıcı adı:',kullanicilar[i]); if(yeni===null)return;
+  const ad=yeni.trim(); if(!ad)return;
+  const eski=kullanicilar[i];
+  kullanicilar[i]=ad; await yaz('kullanicilar',kullanicilar);
+  ziyaretler=ziyaretler.map(z=>z.ekleyen===eski?{...z,ekleyen:ad}:z);
+  await yaz('ziyaretler',ziyaretler);
+  if(kullaniciRolleri[eski]!==undefined){
+    kullaniciRolleri[ad]=kullaniciRolleri[eski]; delete kullaniciRolleri[eski];
+    await yaz('kullaniciRolleri',kullaniciRolleri);
+  }
+  if(ben===eski){ ben=ad; benim.textContent=ad; sessionStorage.setItem('fom_ben',ad); }
+  girisCiz(); ayarCiz();
+}
+async function kullaniciSil(i){
+  if(kullanicilar.length<2){ alert('En az bir kullanıcı kalmalı.'); return; }
+  if(!confirm(`"${kullanicilar[i]}" silinecek. Yazdığı ziyaretler silinmez, kaydeden adı olduğu gibi kalır.`))return;
+  const isim=kullanicilar[i];
+  kullanicilar.splice(i,1); await yaz('kullanicilar',kullanicilar);
+  if(kullaniciRolleri[isim]!==undefined){ delete kullaniciRolleri[isim]; await yaz('kullaniciRolleri',kullaniciRolleri); }
+  girisCiz(); ayarCiz();
+}
+
+async function durumEkle(){
+  const d=yeniDurum.value.trim(); if(!d)return;
+  if(durumlar.some(x=>norm(x)===norm(d))){ alert('Bu durum zaten var.'); return; }
+  durumlar.push(d); await yaz('durumlar',durumlar); yeniDurum.value=''; ayarCiz();
+}
+async function durumDuzenle(i){
+  const yeni=prompt('Durum adı:',durumlar[i]); if(yeni===null)return;
+  const d=yeni.trim(); if(!d)return;
+  const eski=durumlar[i]; durumlar[i]=d; await yaz('durumlar',durumlar);
+  ziyaretler=ziyaretler.map(z=>z.durum===eski?{...z,durum:d}:z);
+  await yaz('ziyaretler',ziyaretler); ayarCiz();
+}
+async function durumSil(i){
+  if(durumlar.length<2){ alert('En az bir durum kalmalı.'); return; }
+  const n=ziyaretler.filter(z=>z.durum===durumlar[i]).length;
+  if(!confirm(`"${durumlar[i]}" silinecek.${n?` ${n} ziyarette kullanılıyor, o kayıtlarda yazılı kalır.`:''}`))return;
+  durumlar.splice(i,1); await yaz('durumlar',durumlar); ayarCiz();
+}
+
+async function hesapTuruEkle(){
+  const t=yeniHesapTuru.value.trim(); if(!t)return;
+  if(hesapTurleri.some(x=>norm(x)===norm(t))){ alert('Bu tür zaten var.'); return; }
+  hesapTurleri.push(t); await yaz('hesapTurleri',hesapTurleri); yeniHesapTuru.value=''; ayarCiz();
+}
+async function hesapTuruDuzenle(i){
+  if(hesapTurleri[i]==='Okul'){ alert('"Okul" türünün adı değiştirilemez — sistemin kademe ve okul türü alanları buna bağlı çalışıyor.'); return; }
+  const yeni=prompt('Tür adı:',hesapTurleri[i]); if(yeni===null)return;
+  const t=yeni.trim(); if(!t)return;
+  const eski=hesapTurleri[i]; hesapTurleri[i]=t; await yaz('hesapTurleri',hesapTurleri);
+  hesaplar=hesaplar.map(h=>h.tur===eski?{...h,tur:t}:h); await yaz('hesaplar',hesaplar); ayarCiz();
+}
+async function hesapTuruSil(i){
+  if(hesapTurleri.length<2){ alert('En az bir tür kalmalı.'); return; }
+  if(hesapTurleri[i]==='Okul'){ alert('"Okul" türü silinemez — sistemin kademe ve okul türü alanları buna bağlı çalışıyor.'); return; }
+  const n=hesaplar.filter(h=>h.tur===hesapTurleri[i]).length;
+  if(!confirm(`"${hesapTurleri[i]}" silinecek.${n?` ${n} hesap bu türde, onlarda yazılı kalır.`:''}`))return;
+  hesapTurleri.splice(i,1); await yaz('hesapTurleri',hesapTurleri); ayarCiz();
+}
+
+/* ---------- yedekleme ---------- */
+function yedekIndir(){
+  const paket={
+    surum:1, tarih:new Date().toISOString(),
+    katalog:KITAPLAR.map(({_s,...r})=>r),
+    hesaplar, ziyaretler, secimler, kullanicilar, kullaniciRolleri, durumlar, hesapTurleri
+  };
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(paket,null,1)],{type:'application/json'}));
+  const g=new Date().toISOString().slice(0,10);
+  a.download=`fom-yedek-${g}.json`;
+  a.click(); URL.revokeObjectURL(a.href);
+}
+function yedekYukle(input){
+  const f=input.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=async ()=>{
+    let p;
+    try{ p=JSON.parse(r.result); }
+    catch(e){ alert('Dosya okunamadı. Bu bir yedek dosyası değil gibi görünüyor.'); input.value=''; return; }
+    if(!p || !Array.isArray(p.katalog)){ alert('Yedek dosyası eksik ya da bozuk.'); input.value=''; return; }
+    if(!confirm(`Yedekteki veri yüklenecek ve şu anki veriler değişecek — herkesin ortak Supabase veritabanında.\n\nYedek tarihi: ${p.tarih?p.tarih.slice(0,10):'bilinmiyor'}\n${p.katalog.length} kitap, ${(p.hesaplar||[]).length} hesap, ${(p.ziyaretler||[]).length} ziyaret\n\nDevam edilsin mi?`)){ input.value=''; return; }
+    // açık formları kapat, düzenleme durumlarını sıfırla — yanlış kayıt güncellemesini önle
+    kapat('hForm'); kapat('kForm'); kapat('zForm'); kapat('kisiForm');
+    duzenlenenHesap=null; duzenlenenKitap=null; duzenlenenZiyaret=null; duzenlenenKisi=null; kisiHesapId=null;
+    zHesapSeciliId=null; secilenKitaplar=[];
+    KITAPLAR=p.katalog;
+    hesaplar=p.hesaplar||[]; ziyaretler=p.ziyaretler||[]; secimler=p.secimler||[];
+    kullanicilar=p.kullanicilar||['Pelin','Ömer'];
+    kullaniciRolleri=p.kullaniciRolleri||{};
+    durumlar=p.durumlar||durumlar; hesapTurleri=p.hesapTurleri||hesapTurleri;
+    yukleniyorMetin.textContent='Yedek Supabase\'e yükleniyor…'; yukleniyor.style.display='';
+    await katalogKaydet();
+    await yaz('hesaplar',hesaplar); await yaz('ziyaretler',ziyaretler); await yaz('secimler',secimler);
+    await yaz('kullanicilar',kullanicilar); await yaz('kullaniciRolleri',kullaniciRolleri);
+    await yaz('durumlar',durumlar); await yaz('hesapTurleri',hesapTurleri);
+    yukleniyor.style.display='none';
+    input.value=''; girisCiz(); kur(); hesapCiz(); ziyaretCiz(); secimCiz(); ayarCiz();
+    alert('Yedek yüklendi.');
+  };
+  r.readAsText(f);
+}
+async function hepsiniSil(){
+  if(!confirm('Katalog, hesaplar, kişiler ve ziyaretler dahil TÜM veriler silinecek — herkesin ortak Supabase veritabanından.\n\nÖnce yedek aldın mı?'))return;
+  if(!confirm('Son onay: bu işlem geri alınamaz.'))return;
+  try{
+    const tabloVeAlan=[
+      ['secimler','id'],['ziyaretler','id'],['hesaplar','id'],['kitaplar','id'],
+      ['kullanici_rolleri','kullanici_ad'],['kullanicilar','ad'],['durumlar','ad'],['hesap_turleri','ad']
+    ];
+    for(const [t,alan] of tabloVeAlan){
+      const sorgu = alan==='id' ? db.from(t).delete().gte('id',0) : db.from(t).delete().neq(alan,'');
+      const {error} = await sorgu;
+      if(error) throw error;
+    }
+    location.reload();
+  }catch(e){
+    alert('Silme sırasında hata oluştu: '+(e.message||e));
+  }
+}
+
+/* ---------- açılış ---------- */
+uygulamayiBaslat().then(()=>{
+  const k=sessionStorage.getItem('fom_ben');
+  if(k && kullanicilar.includes(k)) gir(k);
+});
+</script>
+</body>
+</html>
