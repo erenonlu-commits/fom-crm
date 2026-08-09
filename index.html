@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230F6B5C'/%3E%3Ctext x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-family='system-ui' font-weight='800' font-size='18'%3EF%3C/text%3E%3C/svg%3E">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
@@ -34,8 +35,21 @@ button{cursor:pointer;background:none;border:none}
 /* ---------- giriş ---------- */
 .gate{min-height:100dvh;display:grid;place-items:center;padding:24px}
 .gate-card{width:100%;max-width:380px;text-align:center}
-.mark{font-family:var(--display);font-weight:800;font-size:64px;letter-spacing:-.045em;line-height:.9}
+.mark{font-family:var(--display);font-weight:800;font-size:64px;letter-spacing:-.045em;line-height:.9;
+  position:relative;display:inline-flex;align-items:center}
 .mark span{color:var(--accent)}
+.mark::before{
+  content:"";width:.5em;height:.5em;background:var(--accent);border-radius:.16em;
+  display:inline-block;margin-right:.14em;flex:none;
+}
+.mark::after{
+  content:"";position:absolute;left:.09em;width:.3em;height:.3em;
+  background:#fff;
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 19.5A2.5 2.5 0 0 1 6.5 17H20'/%3E%3Cpath d='M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z'/%3E%3C/svg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 19.5A2.5 2.5 0 0 1 6.5 17H20'/%3E%3Cpath d='M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z'/%3E%3C/svg%3E");
+  -webkit-mask-size:contain;mask-size:contain;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+  -webkit-mask-position:center;mask-position:center;
+}
 .gate-sub{font-size:14px;color:var(--ink-soft);margin:10px 0 36px}
 .who{display:grid;gap:10px}
 .who button{
@@ -181,8 +195,8 @@ select.tur{
 .yildiz{
   display:inline-block;margin-left:6px;padding:2px 4px;font-size:13px;line-height:1;
   color:#B8860B;background:none;border:none;cursor:pointer;vertical-align:middle;
+  transition:color .2s ease,text-shadow .2s ease;
 }
-.yildiz:hover{color:#8A6508}
 .gosterim-detay{
   display:none;margin-top:6px;padding:7px 10px;font-size:12.5px;line-height:1.4;
   background:#FFF8E6;border:1px solid #F0DFA8;border-radius:8px;color:var(--ink-soft);
@@ -309,6 +323,20 @@ select.tur{
   nav button{white-space:nowrap;font-size:13.5px;padding:8px 12px}
   .track i{width:9px}
 }
+
+/* ---------- görsel efektler ---------- */
+.book,.rec{transition:box-shadow .2s ease,transform .15s ease}
+.book:hover,.rec:hover{box-shadow:0 4px 20px rgba(22,35,61,.09);transform:translateY(-1px)}
+.btn:active{transform:scale(.97);transition:transform .05s ease}
+.chip{transition:background .15s ease,transform .1s ease}
+.chip:hover{background:var(--line-soft);transform:scale(1.02)}
+.yildiz:hover{color:#D4A017;text-shadow:0 0 8px rgba(212,160,23,.4)}
+.track i.f{box-shadow:0 0 3px rgba(0,0,0,.1)}
+.empty::before{content:"📭";display:block;font-size:36px;margin-bottom:14px}
+@keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.panel-acilis{animation:slideUp .25s ease-out}
+@keyframes yeniVurgu{0%{background:#E7F1EE}100%{background:var(--surface)}}
+.book.yeni{animation:yeniVurgu 1.2s ease-out}
 </style>
 </head>
 <body>
@@ -989,7 +1017,13 @@ async function git(v,el){
   if(v==='ayarlar') ayarCiz();
   window.scrollTo(0,0);
 }
-const ac=id=>document.getElementById(id).style.display='block';
+const ac=id=>{
+  const el=document.getElementById(id);
+  el.style.display='block';
+  el.classList.remove('panel-acilis');
+  void el.offsetWidth; // animasyonun her açılışta yeniden tetiklenmesi için reflow zorla
+  el.classList.add('panel-acilis');
+};
 const kapat=id=>document.getElementById(id).style.display='none';
 
 /* ---------- katalog ---------- */
@@ -1081,11 +1115,13 @@ async function kitapKaydet(){
   }else{
     veri.id=yeniId();
     KITAPLAR.push(veri);
+    sonEklenenKitapId=veri.id; // sadece YENİ eklemede vurgula, düzenlemede değil
+    setTimeout(()=>{ sonEklenenKitapId=null; }, 1500);
   }
   await katalogKaydet(); kapat('kForm');
-  const yeniId = duzenlenenKitap ?? veri.id;
+  const acilanId = duzenlenenKitap ?? veri.id;
   duzenlenenKitap=null;
-  kur(); kunyeCiz(yeniId);
+  kur(); kunyeCiz(acilanId);
 }
 async function kitapSil(id){
   const k=KITAPLAR.find(x=>x.id===id); if(!k)return;
@@ -1121,12 +1157,14 @@ function ara(){
   books.innerHTML = r.length ? r.map(kart).join('')
     : `<div class="empty"><b>Eşleşen kitap yok</b><p>Aramayı kısaltmayı veya sınıf seçimini kaldırmayı dene.</p></div>`;
 }
+let sonEklenenKitapId=null;
 function kart(k){
   const mid=k.seviye[Math.floor(k.seviye.length/2)], c=renk(mid);
   const track=SEV.map(s=>`<i class="${k.seviye.includes(s.v)?'f':''}"></i>`).join('');
   const ilk=SEV.find(s=>s.v===k.seviye[0]), son=SEV.find(s=>s.v===k.seviye[k.seviye.length-1]);
   const aralik = k.seviye.length===1 ? ilk.t : `${ilk.k==='Okul Ö.'?'Okul Öncesi':ilk.k} – ${son.t}`;
-  return `<article class="book" style="--bar:${c}" onclick="kunyeCiz(${k.id});kunye.scrollIntoView({behavior:'smooth',block:'center'})" tabindex="0" onkeydown="if(event.key==='Enter')this.click()">
+  const yeniSinif = k.id===sonEklenenKitapId ? ' yeni' : '';
+  return `<article class="book${yeniSinif}" style="--bar:${c}" onclick="kunyeCiz(${k.id});kunye.scrollIntoView({behavior:'smooth',block:'center'})" tabindex="0" onkeydown="if(event.key==='Enter')this.click()">
     <h3>${esc(k.ad)}</h3>
     <p class="meta">${esc(k.yazar)} · ${esc(k.turu)}</p>
     <div class="span"><span class="track">${track}</span><small>${esc(aralik)}</small></div>
@@ -1149,6 +1187,27 @@ function hesapTuru(){
 async function hesapKaydet(){
   const ad=hAd.value.trim();
   if(!ad){ alert('Hesap adı gerekli.'); hAd.focus(); return; }
+  // yeni hesap eklenirken, büyük/küçük harf ve Türkçe karakter farkı gözetmeksizin
+  // aynı isim + aynı ilçe/il kombinasyonu var mı kontrol et — "mev koleji" ile "Mev Koleji"
+  // gibi yanlışlıkla ikiye bölünmüş kayıtları önlemek için. Sadece isme bakmıyoruz çünkü
+  // "Bahçeşehir Koleji" gibi zincir okulların onlarca farklı ilçede gerçek şubesi olabilir —
+  // isim aynı ama ilçe farklıysa bu ayrı bir kayıt sayılır, uyarı verilmez.
+  if(duzenlenenHesap==null){
+    const yeniKonum = norm(`${hIl.value}|${hIlce.value}`);
+    const yeniKonumBos = !hIl.value && !hIlce.value;
+    const cakisan = hesaplar.find(h => {
+      if(norm(h.ad)!==norm(ad)) return false;
+      const mevcutKonum = norm(`${h.il||''}|${h.ilce||''}`);
+      const mevcutKonumBos = !h.il && !h.ilce;
+      if(!yeniKonumBos && !mevcutKonumBos && yeniKonum!==mevcutKonum) return false; // farklı il/ilçe — gerçek şube, çakışma sayma
+      return true;
+    });
+    if(cakisan){
+      const yer = cakisan.ilce||cakisan.il ? ` (${cakisan.ilce||cakisan.il})` : '';
+      const devamEt = confirm(`"${cakisan.ad}"${yer} adında bir hesap zaten var.\n\nAynı okulu mu tekrar eklemeye çalışıyorsun, yoksa gerçekten farklı bir okul mu?\n\nAynı okulsa "İptal" de — Hesaplar sekmesinden mevcut kaydı bul.\nGerçekten farklı bir okulsa "Tamam" de, ayrı bir kayıt olarak eklenecek.`);
+      if(!devamEt) return;
+    }
+  }
   const h={
     id: duzenlenenHesap ?? yeniId(),
     ad, tur:hTur.value,
@@ -1584,7 +1643,7 @@ function ziyaretCiz(korunanFiltre){
     ziyaretOkulFiltre.innerHTML = `<button aria-pressed="${ziyaretOkulSecili===null?'true':'false'}" onclick="ziyaretOkulSec(null,this)">Hepsi</button>`+
       okullar.map(h=>{
         const n=ziyaretler.filter(z=>z.hesapId===h.id).length;
-        return `<button aria-pressed="${ziyaretOkulSecili===h.id?'true':'false'}" onclick="ziyaretOkulSec(${h.id},this)">${esc(h.ad)} (${n})</button>`;
+        return `<button aria-pressed="${ziyaretOkulSecili===h.id?'true':'false'}" onclick="ziyaretOkulSec(${h.id},this)">${esc(h.ad)}${h.ilce||h.il?` — ${esc(h.ilce||h.il)}`:''} (${n})</button>`;
       }).join('');
   }
   const s=[...ziyaretler]
@@ -1597,8 +1656,9 @@ function ziyaretCiz(korunanFiltre){
       return k?`<span class="tag">${esc(k.ad)}</span>`:'';
     }).join('');
     const d=new Date(z.tarih).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'});
+    const okulAdiIlce = h ? `${esc(h.ad)}${h.ilce||h.il?` — ${esc(h.ilce||h.il)}`:''}` : 'Silinmiş hesap';
     return `<article class="rec">
-      <div class="rec-h"><h4>${esc(h?h.ad:'Silinmiş hesap')}</h4><span class="barcode">${esc(d)}</span></div>
+      <div class="rec-h"><h4>${okulAdiIlce}</h4><span class="barcode">${esc(d)}</span></div>
       <div class="tags">
         <span class="tag g">${esc(z.gorusmeTuru||'Yüz yüze')}</span>
         ${z.kademe?`<span class="tag">${esc(z.kademe)}</span>`:''}
@@ -1745,7 +1805,7 @@ function secimCiz(){
     return `<article class="rec">
       <div class="rec-h"><h4>${esc(k?k.ad:'Silinmiş kitap')}</h4></div>
       <div class="tags">
-        <span class="tag">${esc(h?h.ad:'Silinmiş okul')}</span>
+        <span class="tag">${esc(h?h.ad:'Silinmiş okul')}${h&&(h.ilce||h.il)?` — ${esc(h.ilce||h.il)}`:''}</span>
         ${h&&h.kademe&&h.kademe.length?`<span class="tag g">${esc(h.kademe.join(', '))}</span>`:''}
         ${h&&h.adres?`<span class="tag o">${esc(h.adres)}</span>`:''}
       </div>
@@ -1854,7 +1914,8 @@ function raporGosterimCiz(){
       const k=KITAPLAR.find(x=>x.id===kid); if(!k) return;
       if(q && !k._s.includes(q)) return;
       const h=hesaplar.find(x=>x.id===z.hesapId);
-      kayitlar.push({kitapAdi:k.ad, okulAdi:h?h.ad:'Silinmiş hesap', tarih:z.tarih});
+      const okulAdi = h ? `${h.ad}${h.ilce||h.il?` — ${h.ilce||h.il}`:''}` : 'Silinmiş hesap';
+      kayitlar.push({kitapAdi:k.ad, okulAdi, tarih:z.tarih});
     });
   });
   kayitlar.sort((a,b)=>b.tarih.localeCompare(a.tarih));
@@ -1882,7 +1943,8 @@ function raporKitabaGoreAra(){
       if(s.kitapId!==k.id || !s.satildi) return;
       if(uygunHesap && !uygunHesap.has(s.hesapId)) return;
       const h=hesaplar.find(x=>x.id===s.hesapId);
-      secenler.push({okulAdi:h?h.ad:'Silinmiş hesap', tarih:s.tarih});
+      const okulAdi = h ? `${h.ad}${h.ilce||h.il?` — ${h.ilce||h.il}`:''}` : 'Silinmiş hesap';
+      secenler.push({okulAdi, tarih:s.tarih});
     });
     secenler.sort((a,b)=>b.tarih.localeCompare(a.tarih));
     const listeHtml = secenler.length ? secenler.map(s=>{
