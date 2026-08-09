@@ -549,7 +549,42 @@ select.tur{
     <!-- SEÇİLEN KİTAPLAR -->
     <section class="view" id="v-secilenler">
       <h2>Seçilen</h2>
-      <p class="lede">Ziyaretlerde gösterilen her kitap buraya kendiliğinden düşer. Satılanı işaretle, gerekirse not ekle.</p>
+      <p class="lede">Bir okula hangi kitaplardan kaç adet gönderildiğini buradan kaydet.</p>
+
+      <div class="acts" style="margin-bottom:16px">
+        <button class="btn" onclick="secimFormAc()">Kayıt ekle</button>
+      </div>
+
+      <div class="panel" id="secimForm" style="display:none">
+        <h3>Yeni kayıt</h3>
+        <div class="f" id="secimHesapWrap">
+          <label for="secimHesapArama">Okul <span class="req">*</span></label>
+          <input id="secimHesapArama" type="text" placeholder="En az 2 harf yaz…" autocomplete="off"
+                 oninput="secimHesapAra()" onfocus="secimHesapAra()">
+          <div class="picker" id="secimHesapOneri" style="display:none"></div>
+        </div>
+        <div class="f"><label for="secimTarih">Tarih <span class="req">*</span></label><input type="date" id="secimTarih"></div>
+        <div class="f">
+          <label>Kitaplar <span class="req">*</span></label>
+          <button type="button" class="acilir" id="secimKitapAcButon" onclick="secimKitapPanelAc()">
+            <span id="secimKitapOzet">Kitap seç</span><span class="ok">▾</span>
+          </button>
+          <div class="acilir-panel" id="secimKitapPanel" style="display:none">
+            <input id="secimKitapAra" placeholder="Ara: ad, yazar, barkod (en az 2 harf)" autocomplete="off" oninput="secimKitapListesiCiz()">
+            <div class="tikli" id="secimTikliListe"></div>
+            <div class="panel-alt">
+              <span id="secimTikliSayi">0 seçili</span>
+              <button type="button" class="btn sm" onclick="secimKitapPanelKapat()">Tamam</button>
+            </div>
+          </div>
+          <div class="picked" id="secimKitapSecili"></div>
+        </div>
+        <div class="acts">
+          <button class="btn" onclick="secimEkle()">Kaydet</button>
+          <button class="btn ghost" onclick="secimFormKapat()">Vazgeç</button>
+        </div>
+      </div>
+
       <div id="secilenListe"></div>
     </section>
 
@@ -669,8 +704,8 @@ function hesapToDB(h){ return {id:h.id, ad:h.ad, tur:h.tur, ozel:h.ozel||null, k
 function ziyaretFromDB(r){ return {id:r.id, hesapId:r.hesap_id, tarih:r.tarih, kademe:r.kademe||'', gorusmeTuru:r.gorusme_turu||'', kisi:r.kisi||'', not:r.aciklama||'', kitaplar:r.kitaplar||[], ekleyen:r.ekleyen||'', duzenleyen:r.duzenleyen||''}; }
 function ziyaretToDB(z){ return {id:z.id, hesap_id:z.hesapId, tarih:z.tarih, kademe:z.kademe||null, gorusme_turu:z.gorusmeTuru||null, kisi:z.kisi||null, aciklama:z.not||null, kitaplar:z.kitaplar||[], ekleyen:z.ekleyen||null, duzenleyen:z.duzenleyen||null}; }
 
-function secimFromDB(r){ return {id:r.id, ziyaretId:r.ziyaret_id, hesapId:r.hesap_id, kitapId:r.kitap_id, tarih:r.tarih, satildi:!!r.satildi, not:r.aciklama||''}; }
-function secimToDB(s){ return {id:s.id, ziyaret_id:s.ziyaretId, hesap_id:s.hesapId, kitap_id:s.kitapId, tarih:s.tarih, satildi:!!s.satildi, aciklama:s.not||''}; }
+function secimFromDB(r){ return {id:r.id, ziyaretId:r.ziyaret_id, hesapId:r.hesap_id, kitapId:r.kitap_id, tarih:r.tarih, satildi:!!r.satildi, adet:(r.adet==null?null:r.adet), not:r.aciklama||''}; }
+function secimToDB(s){ return {id:s.id, ziyaret_id:s.ziyaretId??null, hesap_id:s.hesapId, kitap_id:s.kitapId, tarih:s.tarih, satildi:!!s.satildi, adet:(s.adet==null?null:s.adet), aciklama:s.not||''}; }
 
 /* bir dizinin TAMAMINI Supabase'le eşitler: eklenenleri/değişenleri yazar, çıkarılanları siler */
 async function tabloSenkronize(tablo, dizi, toDB, idAlani='id'){
@@ -758,7 +793,8 @@ async function katalogKaydet(){
 
 let ben=null, filtre={q:'',sev:null,tur:''}, ilSecili=null, secilenKitaplar=[],
     duzenlenenHesap=null, duzenlenenKitap=null, duzenlenenZiyaret=null,
-    kisiHesapId=null, duzenlenenKisi=null, zHesapSeciliId=null, zGorusmeTuruSecili='Yüz yüze';
+    kisiHesapId=null, duzenlenenKisi=null, zHesapSeciliId=null, zGorusmeTuruSecili='Yüz yüze',
+    secimHesapSeciliId=null, secimSecilenKitaplar=[];
 const KADEME_SEV={'Anaokulu':[0],'İlkokul':[1,2,3,4],'Ortaokul':[5,6,7,8],'Lise':[9]};
 
 /* Çoklu cihazdan aynı anda kayıt eklenirse ID çakışmasını önleyen üretici.
@@ -1471,7 +1507,6 @@ async function ziyaretKaydet(){
     ziyaretler.push({id:ziyaretId,...veri,ekleyen:ben});
   }
   await yaz('ziyaretler',ziyaretler);
-  await secimleriSenkronize(ziyaretId, zHesapSeciliId, zTarih.value, [...secilenKitaplar]);
   duzenlenenZiyaret=null; secilenKitaplar=[]; secilenCiz(); kapat('zForm'); ziyaretCiz();
 }
 async function ziyaretSil(id){
@@ -1544,48 +1579,136 @@ function ilceDoldur(secili){
 }
 
 /* ---------- seçilen kitaplar (ziyaretlerden otomatik türer) ---------- */
-/* ÖNEMLİ MİMARİ NOT — ziyaretler.kitaplar ile secimler tablosunun ilişkisi:
-   "ziyaretler.kitaplar" (jsonb dizi) TEK ana kaynaktır — kullanıcının ziyaret formunda
-   elle seçtiği "gösterilen kitaplar" listesi buraya yazılır.
-   "secimler" tablosu bundan OTOMATİK türer; kullanıcı oraya doğrudan kitap ekleyip
-   çıkaramaz, sadece o türeyen kayıtların üzerine "satıldı mı / not" gibi ek bilgi girer.
-   Bu fonksiyon, her ziyaret kaydedildiğinde iki tabloyu birbirine eşitler:
-   listeden çıkan kitabın secimler kaydı silinir, yeni eklenenin kaydı açılır,
-   üzerinde zaten girilmiş "satıldı/not" bilgisi olan kayıtlara dokunulmaz. */
-async function secimleriSenkronize(ziyaretId, hesapId, tarih, kitapListesi){
-  const oncekiKitapIdler = secimler.filter(s=>s.ziyaretId===ziyaretId).map(s=>s.kitapId);
-  // artık gösterilenler arasında olmayan kitapların kaydı silinir
-  secimler = secimler.filter(s=> s.ziyaretId!==ziyaretId || kitapListesi.includes(s.kitapId));
-  // yeni gösterilen kitaplar için kayıt açılır; var olanların hesap/tarih bilgisi güncellenir
-  kitapListesi.forEach(kitapId=>{
-    if(oncekiKitapIdler.includes(kitapId)){
-      secimler = secimler.map(s => (s.ziyaretId===ziyaretId && s.kitapId===kitapId) ? {...s, hesapId, tarih} : s);
-    }else{
-      secimler.push({id:yeniId(), ziyaretId, hesapId, kitapId, tarih, satildi:false, not:''});
-    }
+/* ÖNEMLİ MİMARİ NOT — "Seçilen" sayfası artık BAĞIMSIZ bir kayıt defteri:
+   Zuhal (ya da herhangi bir kullanıcı) buraya kendi eliyle okul, tarih ve kitap seçip
+   kayıt açar. Ziyaret formundaki "Gösterilen kitaplar" ile hiçbir otomatik bağlantısı yoktur —
+   ikisi kasıtlı olarak ayrıldı, biri diğerini beslemez. */
+/* ---------- Seçilen: bağımsız kayıt formu ---------- */
+function secimFormAc(){
+  secimHesapSeciliId=null; secimHesapArama.value=''; secimHesapOneri.style.display='none';
+  secimTarih.valueAsDate=new Date();
+  secimSecilenKitaplar=[];
+  secimKitapPanelKapat(); secimKitapSeciliCiz();
+  ac('secimForm'); secimForm.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function secimFormKapat(){ kapat('secimForm'); }
+
+function secimHesapAra(){
+  const q=norm(secimHesapArama.value.trim());
+  secimHesapOneri.style.display='block';
+  if(q.length<2){
+    secimHesapOneri.innerHTML=`<div class="s" style="padding:10px 12px">En az 2 harf yaz…</div>`;
+    return;
+  }
+  const r=hesaplar.filter(h=>hesapAramaMetni(h).includes(q))
+                  .sort((a,b)=>a.ad.localeCompare(b.ad,'tr')).slice(0,20);
+  secimHesapOneri.innerHTML = r.length ? r.map(h=>`
+    <button type="button" onclick="secimHesapSec(${h.id})">${esc(h.ad)}
+      <div class="s">${esc([h.tur,(h.kademe||[]).join(', '),h.ilce||h.il].filter(Boolean).join(' · ')||'—')}</div>
+    </button>`).join('')
+    : `<div class="s" style="padding:10px 12px">Eşleşen okul yok</div>`;
+}
+function secimHesapSec(id){
+  const h=hesaplar.find(x=>x.id===id); if(!h)return;
+  secimHesapSeciliId=id; secimHesapArama.value=hesapEtiket(h);
+  secimHesapOneri.style.display='none';
+}
+document.addEventListener('click',e=>{
+  if(!secimHesapWrap || !secimHesapWrap.contains(e.target)) { if(secimHesapOneri) secimHesapOneri.style.display='none'; }
+});
+
+function secimKitapPanelAc(){
+  secimKitapPanel.style.display='block'; secimKitapAcButon.style.display='none';
+  secimKitapAra.value=''; secimKitapListesiCiz(); secimKitapAra.focus();
+}
+function secimKitapPanelKapat(){
+  secimKitapPanel.style.display='none'; secimKitapAcButon.style.display='flex';
+  secimKitapOzetCiz();
+}
+function secimKitapOzetCiz(){
+  secimKitapOzet.textContent = secimSecilenKitaplar.length
+    ? `${secimSecilenKitaplar.length} kitap seçili — değiştir`
+    : 'Kitap seç';
+}
+function secimKitapListesiCiz(){
+  const q=norm(secimKitapAra.value.trim());
+  if(q.length<2){
+    secimTikliListe.innerHTML=`<div class="yok">Aramak için en az 2 harf yaz</div>`;
+    secimTikliSayiCiz(); return;
+  }
+  const r=KITAPLAR.filter(k=>k._s.includes(q)).slice(0,50);
+  secimTikliListe.innerHTML = r.length ? r.map(k=>`<label>
+      <input type="checkbox" value="${k.id}" ${secimSecilenKitaplar.includes(k.id)?'checked':''} onchange="secimKitapTikle(${k.id},this.checked)">
+      <span>${esc(k.ad)}<span class="s">${esc(k.yazar)} · ${esc(k.turu)} · ${esc(k.sinif)}</span></span>
+    </label>`).join('') : `<div class="yok">Eşleşen kitap yok</div>`;
+  secimTikliSayiCiz();
+}
+function secimTikliSayiCiz(){ secimTikliSayi.textContent=`${secimSecilenKitaplar.length} seçili`; }
+function secimKitapTikle(id,acik){
+  if(acik){ if(!secimSecilenKitaplar.includes(id)) secimSecilenKitaplar.push(id); }
+  else secimSecilenKitaplar=secimSecilenKitaplar.filter(x=>x!==id);
+  secimTikliSayiCiz(); secimKitapSeciliCiz();
+}
+function secimKitapCikar(id){
+  secimSecilenKitaplar=secimSecilenKitaplar.filter(x=>x!==id);
+  const cb=secimTikliListe.querySelector(`input[value="${id}"]`);
+  if(cb) cb.checked=false;
+  secimTikliSayiCiz(); secimKitapSeciliCiz();
+}
+function secimKitapSeciliCiz(){
+  secimKitapSecili.innerHTML=secimSecilenKitaplar.map(id=>{
+    const k=KITAPLAR.find(x=>x.id===id); if(!k)return '';
+    return `<span class="chip">${esc(k.ad)}<button type="button" onclick="secimKitapCikar(${id})" aria-label="Çıkar">×</button></span>`;
+  }).join('');
+  secimKitapOzetCiz();
+}
+
+async function secimEkle(){
+  if(!secimHesapSeciliId){ alert('Listeden bir okul seç.'); secimHesapArama.focus(); return; }
+  if(!secimTarih.value){ alert('Tarih gerekli.'); secimTarih.focus(); return; }
+  if(!secimSecilenKitaplar.length){ alert('En az bir kitap seç.'); return; }
+  const tarih=secimTarih.value, hesapId=secimHesapSeciliId;
+  secimSecilenKitaplar.forEach(kitapId=>{
+    secimler.push({id:yeniId(), ziyaretId:null, hesapId, kitapId, tarih, satildi:false, adet:null, not:''});
   });
   await yaz('secimler', secimler);
+  kapat('secimForm'); secimCiz();
 }
+
 function secimCiz(){
   const s=[...secimler].sort((a,b)=>b.tarih.localeCompare(a.tarih));
   secilenListe.innerHTML = s.length ? s.map(kayit=>{
     const k=KITAPLAR.find(x=>x.id===kayit.kitapId);
     const h=hesaplar.find(x=>x.id===kayit.hesapId);
-    const d=new Date(kayit.tarih).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'});
     return `<article class="rec">
-      <div class="rec-h"><h4>${esc(k?k.ad:'Silinmiş kitap')}</h4><span class="barcode">${esc(d)}</span></div>
+      <div class="rec-h"><h4>${esc(k?k.ad:'Silinmiş kitap')}</h4></div>
       <div class="tags">
         <span class="tag">${esc(h?h.ad:'Silinmiş okul')}</span>
         ${h&&h.adres?`<span class="tag o">${esc(h.adres)}</span>`:''}
+      </div>
+      <div class="g2" style="margin-top:12px">
+        <div class="f" style="margin:0">
+          <label style="font-size:12px">Tarih</label>
+          <input type="date" value="${esc(kayit.tarih)}" onchange="secimAlanKaydet(${kayit.id},'tarih',this.value)">
+        </div>
+        <div class="f" style="margin:0">
+          <label style="font-size:12px">Adet</label>
+          <input type="number" min="0" inputmode="numeric" value="${kayit.adet==null?'':kayit.adet}" placeholder="—"
+            onchange="secimAlanKaydet(${kayit.id},'adet',this.value===''?null:Number(this.value))">
+        </div>
       </div>
       <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-weight:600;font-size:14px">
         <input type="checkbox" ${kayit.satildi?'checked':''} onchange="secimSatildiTikle(${kayit.id},this.checked)">
         Satıldı
       </label>
-      <textarea placeholder="Not: adet, eğitim-öğretim yılı, teslimat tarihi…" style="margin-top:9px;min-height:60px"
+      <textarea placeholder="Not…" style="margin-top:9px;min-height:60px"
         onblur="secimNotKaydet(${kayit.id},this.value)">${esc(kayit.not)}</textarea>
     </article>`;
-  }).join('') : `<div class="empty"><b>Henüz kayıt yok</b><p>Bir ziyarette kitap gösterip kaydedince burada görünür.</p></div>`;
+  }).join('') : `<div class="empty"><b>Henüz kayıt yok</b><p>"Kayıt ekle" ile bir okula gönderilen kitapları kaydet.</p></div>`;
+}
+async function secimAlanKaydet(id, alan, deger){
+  secimler = secimler.map(s=>s.id===id?{...s,[alan]:deger}:s);
+  await yaz('secimler', secimler);
 }
 async function secimSatildiTikle(id, deger){
   secimler = secimler.map(s=>s.id===id?{...s,satildi:deger}:s);
