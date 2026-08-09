@@ -183,6 +183,11 @@ select.tur{
   color:#B8860B;background:none;border:none;cursor:pointer;vertical-align:middle;
 }
 .yildiz:hover{color:#8A6508}
+.gosterim-detay{
+  display:none;margin-top:6px;padding:7px 10px;font-size:12.5px;line-height:1.4;
+  background:#FFF8E6;border:1px solid #F0DFA8;border-radius:8px;color:var(--ink-soft);
+}
+.gosterim-detay.acik{display:block}
 .panel-alt{
   display:flex;align-items:center;justify-content:space-between;gap:10px;
   padding-top:10px;margin-top:9px;border-top:1px solid var(--line);
@@ -285,7 +290,7 @@ select.tur{
   border-bottom:1px solid var(--line-soft);
 }
 .picker button:last-child{border-bottom:none}
-.picker button:hover{background:var(--line-soft)}
+.picker button:hover, .picker button.aktif{background:var(--line-soft)}
 .picker .s{color:var(--ink-soft);font-size:12.5px}
 
 .note-bar{
@@ -488,7 +493,7 @@ select.tur{
         <div class="f" id="zHesapWrap">
           <label for="zHesapArama">Okul <span class="req">*</span></label>
           <input id="zHesapArama" type="text" placeholder="En az 2 harf yaz…" autocomplete="off"
-                 oninput="zHesapAra()" onfocus="zHesapAra()">
+                 oninput="zHesapAra()" onfocus="zHesapAra()" onkeydown="oneriKlavye(event,zHesapOneri,this)">
           <div class="picker" id="zHesapOneri" style="display:none"></div>
         </div>
         <div class="g2">
@@ -560,7 +565,7 @@ select.tur{
         <div class="f" id="secimHesapWrap">
           <label for="secimHesapArama">Okul <span class="req">*</span></label>
           <input id="secimHesapArama" type="text" placeholder="En az 2 harf yaz…" autocomplete="off"
-                 oninput="secimHesapAra()" onfocus="secimHesapAra()">
+                 oninput="secimHesapAra()" onfocus="secimHesapAra()" onkeydown="oneriKlavye(event,secimHesapOneri,this)">
           <div class="picker" id="secimHesapOneri" style="display:none"></div>
         </div>
         <div class="f"><label for="secimTarih">Tarih <span class="req">*</span></label><input type="date" id="secimTarih"></div>
@@ -589,7 +594,7 @@ select.tur{
         <label for="secimFiltreArama">Okula göre filtrele</label>
         <div style="display:flex;gap:8px">
           <input id="secimFiltreArama" type="text" placeholder="Okul adı yaz…" autocomplete="off"
-                 oninput="secimFiltreAra()" onfocus="secimFiltreAra()" style="flex:1">
+                 oninput="secimFiltreAra()" onfocus="secimFiltreAra()" onkeydown="oneriKlavye(event,secimFiltreOneri,this)" style="flex:1">
           <button type="button" class="btn ghost sm" onclick="secimFiltreTemizle()">Temizle</button>
         </div>
         <div class="picker" id="secimFiltreOneri" style="display:none"></div>
@@ -1281,6 +1286,34 @@ function hesapAramaMetni(h){
   return norm([h.ad,h.tur,h.ozel,h.il,h.ilce,...(h.kademe||[])].filter(Boolean).join(' '));
 }
 
+/* Öneri panellerinde (okul arama listeleri) klavye desteği:
+   ArrowDown/Up ile gezinme, Enter ile seçme, Escape ile kapatma.
+   Sadece bir "aktif" class ekleyip çıkarır — panel mevcut fare/dokunma davranışına dokunmaz. */
+function oneriKlavye(e, panelEl, girisEl){
+  if(!panelEl || panelEl.style.display==='none') return;
+  const butonlar=[...panelEl.querySelectorAll('button')];
+  if(!butonlar.length) return;
+  let idx=butonlar.findIndex(b=>b.classList.contains('aktif'));
+  if(e.key==='ArrowDown'){
+    e.preventDefault();
+    if(idx>=0) butonlar[idx].classList.remove('aktif');
+    idx=(idx+1)%butonlar.length;
+    butonlar[idx].classList.add('aktif');
+    butonlar[idx].scrollIntoView({block:'nearest'});
+  }else if(e.key==='ArrowUp'){
+    e.preventDefault();
+    if(idx>=0) butonlar[idx].classList.remove('aktif');
+    idx = idx<=0 ? butonlar.length-1 : idx-1;
+    butonlar[idx].classList.add('aktif');
+    butonlar[idx].scrollIntoView({block:'nearest'});
+  }else if(e.key==='Enter'){
+    if(idx>=0){ e.preventDefault(); butonlar[idx].click(); }
+  }else if(e.key==='Escape'){
+    panelEl.style.display='none';
+    if(girisEl) girisEl.blur();
+  }
+}
+
 /* okul arama: birkaç harfte öneri listesi açılır, tıklanınca seçilir */
 function zHesapAra(){
   const q=norm(zHesapArama.value.trim());
@@ -1420,21 +1453,31 @@ function kitapGosterimGecmisi(kitapId){
 }
 function yildizHtml(kitapId){
   return kitapGosterimGecmisi(kitapId)
-    ? `<button type="button" class="yildiz" onmousedown="event.preventDefault()" onclick="event.stopPropagation();gosterimDetayGoster(${kitapId})" aria-label="Bu okulda daha önce gösterildi, detay için dokun">★</button>`
+    ? `<button type="button" class="yildiz" onmousedown="event.preventDefault()" onclick="event.stopPropagation();gosterimDetayToggle(${kitapId})" aria-label="Bu okulda daha önce gösterildi, detay için dokun">★</button>`
     : '';
 }
-function gosterimDetayGoster(kitapId){
+function gosterimDetayToggle(kitapId){
+  // aynı anda tek bir detay kutusu açık kalsın
+  document.querySelectorAll('.gosterim-detay.acik').forEach(el=>{
+    if(el.dataset.kitap!==String(kitapId)){ el.classList.remove('acik'); el.textContent=''; }
+  });
+  const kutu=document.getElementById('ydetay-'+kitapId);
+  if(!kutu) return;
+  if(kutu.classList.contains('acik')){ kutu.classList.remove('acik'); kutu.textContent=''; return; }
   const g=kitapGosterimGecmisi(kitapId), k=KITAPLAR.find(x=>x.id===kitapId);
   if(!g||!k) return;
   const d=new Date(g.sonTarih).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'});
-  const tekrar = g.sayi>1 ? ` (toplam ${g.sayi} kez gösterildi)` : '';
-  alert(`${k.ad}\n\nBu okulda daha önce gösterilmiş.\nSon gösterim: ${d}${g.sonKisi?' — '+g.sonKisi:''}${tekrar}`);
+  const tekrar = g.sayi>1 ? ` · toplam ${g.sayi} kez gösterilmiş` : '';
+  kutu.textContent = `Son gösterim: ${d}${g.sonKisi?' — '+g.sonKisi:''}${tekrar}`;
+  kutu.classList.add('acik');
 }
 function kitapSatiriHtml(k, yazariGoster){
   const alt = yazariGoster ? `${esc(k.yazar)} · ${esc(k.turu)} · ${esc(k.sinif)}` : `${esc(k.turu)} · ${esc(k.sinif)}`;
   return `<label>
       <input type="checkbox" value="${k.id}" ${secilenKitaplar.includes(k.id)?'checked':''} onchange="kitapTikle(${k.id},this.checked)">
-      <span>${esc(k.ad)}${yildizHtml(k.id)}<span class="s">${alt}</span></span>
+      <span>${esc(k.ad)}${yildizHtml(k.id)}<span class="s">${alt}</span>
+        <span class="gosterim-detay" id="ydetay-${k.id}" data-kitap="${k.id}" onclick="event.preventDefault();event.stopPropagation()"></span>
+      </span>
     </label>`;
 }
 function kitapListesiCiz(){
