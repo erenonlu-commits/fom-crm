@@ -1703,6 +1703,9 @@ function secimCiz(){
       </label>
       <textarea placeholder="Not…" style="margin-top:9px;min-height:60px"
         onblur="secimNotKaydet(${kayit.id},this.value)">${esc(kayit.not)}</textarea>
+      <div class="acts" style="margin-top:11px">
+        <button class="btn link" onclick="secimSil(${kayit.id})">Sil</button>
+      </div>
     </article>`;
   }).join('') : `<div class="empty"><b>Henüz kayıt yok</b><p>"Kayıt ekle" ile bir okula gönderilen kitapları kaydet.</p></div>`;
 }
@@ -1717,6 +1720,14 @@ async function secimSatildiTikle(id, deger){
 async function secimNotKaydet(id, deger){
   secimler = secimler.map(s=>s.id===id?{...s,not:deger}:s);
   await yaz('secimler', secimler);
+}
+async function secimSil(id){
+  const kayit=secimler.find(s=>s.id===id); if(!kayit)return;
+  const k=KITAPLAR.find(x=>x.id===kayit.kitapId);
+  if(!confirm(`"${k?k.ad:'Bu kayıt'}" silinecek. Onaylıyor musun?`))return;
+  secimler=secimler.filter(s=>s.id!==id);
+  await yaz('secimler', secimler);
+  secimCiz();
 }
 
 /* ---------- raporlar ---------- */
