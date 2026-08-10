@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
@@ -19,6 +19,13 @@
   --body:"Public Sans",ui-sans-serif,system-ui,-apple-system,sans-serif;
   --mono:ui-monospace,"SF Mono",Menlo,monospace;
   --r:10px;
+}
+/* tema renkleri: kullanıcı Ayarlar'dan seçebilir, cihazda hatırlanır */
+body.tema-lacivert{ --accent:#1A3A5C; --accent-ink:#0F2440; }
+body.tema-bordo{ --accent:#7A2E3B; --accent-ink:#5C1E28; }
+body.tema-turuncu{ --accent:#C75B2A; --accent-ink:#9B4218; }
+body,.btn,.who i,.tag.g,.tag.o,.top,nav button[aria-current="page"]{
+  transition:background .3s ease,color .3s ease,border-color .3s ease;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
@@ -337,6 +344,26 @@ select.tur{
 .panel-acilis{animation:slideUp .25s ease-out}
 @keyframes yeniVurgu{0%{background:#E7F1EE}100%{background:var(--surface)}}
 .book.yeni{animation:yeniVurgu 1.2s ease-out}
+
+/* ---------- Dashboard kartları (Hesaplar sekmesi üstü) ---------- */
+.dash{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+  gap:10px;margin-bottom:24px;
+}
+.dash-card{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  padding:16px 18px;text-align:center;transition:box-shadow .2s ease,transform .15s ease;
+}
+.dash-card:hover{box-shadow:0 4px 16px rgba(22,35,61,.07);transform:translateY(-1px)}
+.dash-card .dsayi{
+  font-family:var(--display);font-size:36px;font-weight:800;letter-spacing:-.03em;
+  color:var(--accent);line-height:1;transition:color .3s ease;
+}
+.dash-card .dlabel{
+  font-size:11px;color:var(--ink-soft);font-weight:600;margin-top:6px;
+  text-transform:uppercase;letter-spacing:.06em;
+}
+@media(max-width:400px){ .dash{grid-template-columns:1fr 1fr} }
 </style>
 </head>
 <body>
@@ -442,6 +469,12 @@ select.tur{
     <!-- HESAPLAR -->
     <section class="view on" id="v-hesaplar">
       <h2>Hesaplar</h2>
+      <div class="dash" id="dashKartlar">
+        <div class="dash-card"><div class="dsayi" id="dsOkul">0</div><div class="dlabel">Hesap</div></div>
+        <div class="dash-card"><div class="dsayi" id="dsZiyaret">0</div><div class="dlabel">Ziyaret</div></div>
+        <div class="dash-card"><div class="dsayi" id="dsSecim">0</div><div class="dlabel">Seçilen</div></div>
+        <div class="dash-card"><div class="dsayi" id="dsKitap">0</div><div class="dlabel">Kitap</div></div>
+      </div>
       <p class="lede">Her okul ve dağıtımcı ayrı bir hesap. Kişiler ve notlar hesabın altında durur.</p>
 
       <div class="acts" style="margin-bottom:16px">
@@ -690,6 +723,17 @@ select.tur{
         <div class="f" style="margin-top:12px"><label for="yeniHesapTuru">Yeni tür</label>
           <input id="yeniHesapTuru" placeholder="Örn. Kütüphane" onkeydown="if(event.key==='Enter')hesapTuruEkle()"></div>
         <button class="btn sm" onclick="hesapTuruEkle()">Ekle</button>
+      </div>
+
+      <div class="panel">
+        <h3>Tema</h3>
+        <p class="lede" style="margin:-8px 0 12px">Kendi cihazına özel bir renk seç.</p>
+        <div class="ladder" id="temaSec">
+          <button onclick="temaDegistir('')" data-tema="" aria-pressed="true" style="background:#0F6B5C;border-color:#0F6B5C;color:#fff">Yeşil</button>
+          <button onclick="temaDegistir('lacivert')" data-tema="lacivert" style="background:#1A3A5C;border-color:#1A3A5C;color:#fff">Lacivert</button>
+          <button onclick="temaDegistir('bordo')" data-tema="bordo" style="background:#7A2E3B;border-color:#7A2E3B;color:#fff">Bordo</button>
+          <button onclick="temaDegistir('turuncu')" data-tema="turuncu" style="background:#C75B2A;border-color:#C75B2A;color:#fff">Turuncu</button>
+        </div>
       </div>
 
       <div class="panel">
@@ -1295,7 +1339,20 @@ function ilSec(il,el){
   ilFiltre.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed','false'));
   el.setAttribute('aria-pressed','true'); hesapCiz(true);
 }
+/* Dashboard sadece Hesaplar sekmesinde göründüğü için, hesapCiz() her çağrıldığında
+   (sekmeye her girişte ve her hesap ekleme/silmede) burada da tazelenmesi yeterli. */
+function dashGuncelle(){
+  const elOkul=document.getElementById('dsOkul');
+  const elZiyaret=document.getElementById('dsZiyaret');
+  const elSecim=document.getElementById('dsSecim');
+  const elKitap=document.getElementById('dsKitap');
+  if(elOkul) elOkul.textContent=hesaplar.length;
+  if(elZiyaret) elZiyaret.textContent=ziyaretler.length;
+  if(elSecim) elSecim.textContent=secimler.length;
+  if(elKitap) elKitap.textContent=KITAPLAR.length;
+}
 function hesapCiz(korunanIl){
+  dashGuncelle();
   if(!korunanIl){
     const iller=[...new Set(hesaplar.map(h=>h.il).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'tr'));
     ilFiltreWrap.style.display = iller.length>1?'block':'none';
@@ -2150,7 +2207,20 @@ async function hepsiniSil(){
   }
 }
 
+/* ---------- tema ----------
+   Tema tercihi kişisel bir cihaz ayarı, ortak veritabanına değil
+   bu tarayıcıya (localStorage) kaydedilir — herkes kendi rengini seçebilir. */
+function temaDegistir(t){
+  document.body.classList.remove('tema-lacivert','tema-bordo','tema-turuncu');
+  if(t) document.body.classList.add('tema-'+t);
+  localStorage.setItem('fom_tema', t || '');
+  document.querySelectorAll('#temaSec button').forEach(b=>{
+    b.setAttribute('aria-pressed', b.dataset.tema===t ? 'true' : 'false');
+  });
+}
+
 /* ---------- açılış ---------- */
+temaDegistir(localStorage.getItem('fom_tema') || ''); // sayfa yüklenir yüklenmez, event beklemeden uygula
 uygulamayiBaslat().then(()=>{
   const k=sessionStorage.getItem('fom_ben');
   if(k && kullanicilar.includes(k)) gir(k);
