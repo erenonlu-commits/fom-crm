@@ -687,7 +687,7 @@ select.tur{
       <div class="panel">
         <h3>Gösterim kaydı</h3>
         <p class="lede" style="margin:-8px 0 12px">Hangi kitap, hangi okulda, ne zaman gösterildi.</p>
-        <input id="raporAra" type="text" placeholder="Kitap adına göre ara…" autocomplete="off" oninput="raporGosterimCiz()">
+        <input id="raporAra" type="text" placeholder="Kitap veya yazar adına göre ara…" autocomplete="off" oninput="raporGosterimCiz()">
         <div id="raporGosterimListe" style="margin-top:12px"></div>
       </div>
 
@@ -1998,18 +1998,36 @@ function raporGosterimCiz(){
       if(q && !k._s.includes(q)) return;
       const h=hesaplar.find(x=>x.id===z.hesapId);
       const okulAdi = h ? `${h.ad}${h.ilce||h.il?` — ${h.ilce||h.il}`:''}` : 'Silinmiş hesap';
-      kayitlar.push({kitapAdi:k.ad, okulAdi, tarih:z.tarih});
+      kayitlar.push({kitapId:kid, kitapAdi:k.ad, okulAdi, tarih:z.tarih});
     });
   });
-  kayitlar.sort((a,b)=>b.tarih.localeCompare(a.tarih));
-  raporGosterimListe.innerHTML = kayitlar.length ? kayitlar.map(r=>{
-    const d=new Date(r.tarih).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'});
-    return `<div class="rapor-satir">
-      <span class="rs-kitap">${esc(r.kitapAdi)}</span>
-      <span class="rs-okul">${esc(r.okulAdi)}</span>
-      <span class="rs-tarih">${esc(d)}</span>
+  if(!kayitlar.length){
+    raporGosterimListe.innerHTML = `<div class="empty"><b>Kayıt yok</b><p>Henüz gösterilen kitap yok.</p></div>`;
+    return;
+  }
+  // Kitap bazında grupla — bir yazarın birden fazla kitabı olabileceği için,
+  // yazar adına göre arandığında hangi kitabın nerede gösterildiği net ayrılsın.
+  const gruplar=new Map();
+  kayitlar.forEach(r=>{
+    if(!gruplar.has(r.kitapId)) gruplar.set(r.kitapId,{kitapAdi:r.kitapAdi,satirlar:[]});
+    gruplar.get(r.kitapId).satirlar.push(r);
+  });
+  const gruplarDizi=[...gruplar.values()];
+  gruplarDizi.forEach(g=>g.satirlar.sort((a,b)=>b.tarih.localeCompare(a.tarih)));
+  gruplarDizi.sort((a,b)=>b.satirlar[0].tarih.localeCompare(a.satirlar[0].tarih));
+  raporGosterimListe.innerHTML = gruplarDizi.map(g=>{
+    const satirHtml=g.satirlar.map(r=>{
+      const d=new Date(r.tarih).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'});
+      return `<div class="rapor-satir">
+        <span class="rs-okul">${esc(r.okulAdi)}</span>
+        <span class="rs-tarih">${esc(d)}</span>
+      </div>`;
+    }).join('');
+    return `<div style="margin-top:14px">
+      <div class="sub-h">${esc(g.kitapAdi)} — ${g.satirlar.length} kez gösterildi</div>
+      ${satirHtml}
     </div>`;
-  }).join('') : `<div class="empty"><b>Kayıt yok</b><p>Henüz gösterilen kitap yok.</p></div>`;
+  }).join('');
 }
 function raporKitabaGoreAra(){
   const q=norm(raporKitapAra.value.trim());
