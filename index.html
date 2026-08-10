@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
@@ -364,6 +364,15 @@ select.tur{
   text-transform:uppercase;letter-spacing:.06em;
 }
 @media(max-width:400px){ .dash{grid-template-columns:1fr 1fr} }
+
+/* ---------- Yükleme ekranı animasyonu ---------- */
+@keyframes logoPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.06);opacity:.82}}
+#yukleniyor .mark{animation:logoPulse 2s ease-in-out infinite}
+@keyframes dotBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.yukleniyor-nokta{display:flex;justify-content:center;gap:6px;margin-top:18px}
+.yukleniyor-nokta span{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:dotBounce 1.2s ease-in-out infinite}
+.yukleniyor-nokta span:nth-child(2){animation-delay:.15s}
+.yukleniyor-nokta span:nth-child(3){animation-delay:.3s}
 </style>
 </head>
 <body>
@@ -372,7 +381,8 @@ select.tur{
 <div class="gate" id="yukleniyor">
   <div class="gate-card">
     <div class="mark">FOM<span>.</span></div>
-    <p class="gate-sub" id="yukleniyorMetin">Yükleniyor…</p>
+    <div class="yukleniyor-nokta"><span></span><span></span><span></span></div>
+    <p class="gate-sub" id="yukleniyorMetin" style="margin-top:20px">Yükleniyor…</p>
   </div>
 </div>
 
@@ -1398,6 +1408,21 @@ function hesapEtiket(h){
   else if(h.il) ek.push(h.il);
   return h.ad + (ek.length?' — '+ek.join(' · '):'');
 }
+
+/* "YYYY-MM-DD" tarihini "Bugün / Dün / N gün önce / normal tarih" olarak gösterir.
+   Saat dilimi sorunlarından kaçınmak için tarihi elle parçalayıp yerel Date oluşturur
+   (new Date('YYYY-MM-DD') bazı saat dilimlerinde bir gün kayabiliyor). */
+function tarihFormatla(tarihStr, sadeceYakinsa){
+  if(!tarihStr) return '';
+  const [yil,ay,gun]=tarihStr.split('-').map(Number);
+  const tarih=new Date(yil,ay-1,gun);
+  const bugun=new Date(); bugun.setHours(0,0,0,0);
+  const farkGun=Math.round((bugun-tarih)/86400000);
+  if(farkGun===0) return 'Bugün';
+  if(farkGun===1) return 'Dün';
+  if(farkGun>=2 && farkGun<=6) return `${farkGun} gün önce`;
+  return sadeceYakinsa ? '' : tarih.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'});
+}
 function hesapAramaMetni(h){
   return norm([h.ad,h.tur,h.ozel,h.il,h.ilce,...(h.kademe||[])].filter(Boolean).join(' '));
 }
@@ -1712,7 +1737,7 @@ function ziyaretCiz(korunanFiltre){
       const k=KITAPLAR.find(x=>x.id===id);
       return k?`<span class="tag">${esc(k.ad)}</span>`:'';
     }).join('');
-    const d=new Date(z.tarih).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'});
+    const d=tarihFormatla(z.tarih);
     const okulAdiIlce = h ? `${esc(h.ad)}${h.ilce||h.il?` — ${esc(h.ilce||h.il)}`:''}` : 'Silinmiş hesap';
     return `<article class="rec">
       <div class="rec-h"><h4>${okulAdiIlce}</h4><span class="barcode">${esc(d)}</span></div>
@@ -1859,6 +1884,7 @@ function secimCiz(){
   secilenListe.innerHTML = s.length ? s.map(kayit=>{
     const k=KITAPLAR.find(x=>x.id===kayit.kitapId);
     const h=hesaplar.find(x=>x.id===kayit.hesapId);
+    const tarihIpucu=tarihFormatla(kayit.tarih,true);
     return `<article class="rec">
       <div class="rec-h"><h4>${esc(k?k.ad:'Silinmiş kitap')}</h4></div>
       <div class="tags">
@@ -1868,7 +1894,7 @@ function secimCiz(){
       </div>
       <div class="g2" style="margin-top:12px">
         <div class="f" style="margin:0">
-          <label style="font-size:12px">Tarih</label>
+          <label style="font-size:12px">Tarih${tarihIpucu?` <span style="color:var(--ink-soft);font-weight:400">(${tarihIpucu})</span>`:''}</label>
           <input type="date" value="${esc(kayit.tarih)}" onchange="secimAlanKaydet(${kayit.id},'tarih',this.value)">
         </div>
         <div class="f" style="margin:0">
