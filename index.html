@@ -340,6 +340,10 @@ select.tur{
 .yildiz:hover{color:#D4A017;text-shadow:0 0 8px rgba(212,160,23,.4)}
 .track i.f{box-shadow:0 0 3px rgba(0,0,0,.1)}
 .empty::before{content:"📭";display:block;font-size:36px;margin-bottom:14px}
+#hesapListe .empty::before{content:"🏫"}
+#ziyaretListe .empty::before{content:"📋"}
+#secilenListe .empty::before{content:"📦"}
+#books .empty::before{content:"📚"}
 @keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 .panel-acilis{animation:slideUp .25s ease-out}
 @keyframes yeniVurgu{0%{background:#E7F1EE}100%{background:var(--surface)}}
@@ -351,9 +355,15 @@ select.tur{
   gap:10px;margin-bottom:24px;
 }
 .dash-card{
+  position:relative;overflow:hidden;
   background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
   padding:16px 18px;text-align:center;transition:box-shadow .2s ease,transform .15s ease;
 }
+.dash-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px}
+.dash-card:nth-child(1)::before{background:var(--lv34)} /* Hesap */
+.dash-card:nth-child(2)::before{background:var(--lv56)} /* Ziyaret */
+.dash-card:nth-child(3)::before{background:var(--lv12)} /* Seçilen */
+.dash-card:nth-child(4)::before{background:var(--lv0)}  /* Kitap */
 .dash-card:hover{box-shadow:0 4px 16px rgba(22,35,61,.07);transform:translateY(-1px)}
 .dash-card .dsayi{
   font-family:var(--display);font-size:36px;font-weight:800;letter-spacing:-.03em;
@@ -373,6 +383,8 @@ select.tur{
 .yukleniyor-nokta span{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:dotBounce 1.2s ease-in-out infinite}
 .yukleniyor-nokta span:nth-child(2){animation-delay:.15s}
 .yukleniyor-nokta span:nth-child(3){animation-delay:.3s}
+input[type="date"]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.6;transition:opacity .15s}
+input[type="date"]:hover::-webkit-calendar-picker-indicator{opacity:1}
 </style>
 </head>
 <body>
@@ -443,7 +455,7 @@ select.tur{
           <div class="checks" id="kSeviye"></div>
         </div>
         <div class="acts">
-          <button class="btn" onclick="kitapKaydet()">Kaydet</button>
+          <button class="btn" onclick="butonlaKaydet(this,kitapKaydet)">Kaydet</button>
           <button class="btn ghost" onclick="kapat('kForm')">Vazgeç</button>
         </div>
       </div>
@@ -520,7 +532,7 @@ select.tur{
         <div class="f"><label for="hAdres">Adres</label><input id="hAdres" placeholder="Açık adres"></div>
         <div class="f"><label for="hNot">Not</label><textarea id="hNot" placeholder="Bu hesapla ilgili genel notlar"></textarea></div>
         <div class="acts">
-          <button class="btn" onclick="hesapKaydet()">Kaydet</button>
+          <button class="btn" onclick="butonlaKaydet(this,hesapKaydet)">Kaydet</button>
           <button class="btn ghost" onclick="kapat('hForm')">Vazgeç</button>
         </div>
       </div>
@@ -537,7 +549,7 @@ select.tur{
           <div class="f"><label for="pMail">E-posta</label><input id="pMail" type="email" placeholder="ad@okul.k12.tr"></div>
         </div>
         <div class="acts">
-          <button class="btn" onclick="kisiKaydet()">Kaydet</button>
+          <button class="btn" onclick="butonlaKaydet(this,kisiKaydet)">Kaydet</button>
           <button class="btn ghost" onclick="kapat('kisiForm')">Vazgeç</button>
         </div>
       </div>
@@ -609,7 +621,7 @@ select.tur{
           <div id="yazarSonuc"></div>
         </div>
         <div class="acts">
-          <button class="btn" onclick="ziyaretKaydet()">Kaydet</button>
+          <button class="btn" onclick="butonlaKaydet(this,ziyaretKaydet)">Kaydet</button>
           <button class="btn ghost" onclick="kapat('zForm')">Vazgeç</button>
         </div>
       </div>
@@ -656,7 +668,7 @@ select.tur{
           <div class="picked" id="secimKitapSecili"></div>
         </div>
         <div class="acts">
-          <button class="btn" onclick="secimEkle()">Kaydet</button>
+          <button class="btn" onclick="butonlaKaydet(this,secimEkle)">Kaydet</button>
           <button class="btn ghost" onclick="secimFormKapat()">Vazgeç</button>
         </div>
       </div>
@@ -991,6 +1003,11 @@ function formlarKirliMi(){
   if(typeof kisiForm!=='undefined' && kisiForm && kisiForm.style.display==='block' && duzenlenenKisi==null){
     if(pAd.value.trim() || pTel.value.trim() || pMail.value.trim()) return true;
   }
+  // "Seçilen" formu her zaman yeni kayıt (düzenleme modu yok), bu yüzden
+  // duzenlenenX kontrolü gerekmiyor — okul veya kitap seçilmişse doldurulmuş sayılır.
+  if(typeof secimForm!=='undefined' && secimForm && secimForm.style.display==='block'){
+    if(secimHesapSeciliId || (secimSecilenKitaplar&&secimSecilenKitaplar.length)) return true;
+  }
   return false;
 }
 /* Sekme değişince ilgili tabloları Supabase'den taze çeker —
@@ -1055,11 +1072,11 @@ async function git(v,el){
   el.setAttribute('aria-current','page');
 
   const tazeleHaritasi = {
-    hesaplar: ['hesaplar'],
+    hesaplar: ['hesaplar','ziyaretler','secimler','kitaplar'], // Dashboard 4 tablodan sayı gösteriyor, hepsi güncel olmalı
     ziyaretler: ['ziyaretler','hesaplar'],
     secilenler: ['secimler','hesaplar','kitaplar'],
     katalog: ['kitaplar'],
-    raporlar: ['ziyaretler','secimler','hesaplar'],
+    raporlar: ['ziyaretler','secimler','hesaplar','kitaplar'],
     ayarlar: ['kullanicilar','kullaniciRolleri','durumlar','hesapTurleri'],
   };
   if(tazeleHaritasi[v]) await veriTazele(tazeleHaritasi[v]);
@@ -1152,14 +1169,43 @@ function sinifMetni(sev){
   if(!sev.length) return '';
   return sev.map(v=>SEV.find(s=>s.v===v).t).join(', ');
 }
+/* Kaydet butonlarını, işlem sürerken kilitler — sahada zayıf internette
+   art arda tıklanıp aynı kaydın birden fazla kez eklenmesini önler.
+   İşlem fonksiyonu false döndürürse (doğrulama hatası, çakışma iptali vb.)
+   "Kaydedildi" bildirimi gösterilmez. */
+async function butonlaKaydet(buton, islemFn){
+  const eskiMetin=buton.textContent;
+  buton.disabled=true; buton.textContent='Kaydediliyor…';
+  try{
+    const sonuc=await islemFn();
+    if(sonuc!==false) kaydedildiGoster();
+  } finally {
+    buton.disabled=false; buton.textContent=eskiMetin;
+  }
+}
+function kaydedildiGoster(){
+  const t=document.createElement('div');
+  t.textContent='✓ Kaydedildi';
+  t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);'
+    +'background:var(--ink);color:#fff;padding:10px 18px;border-radius:10px;'
+    +'font-size:14px;font-weight:600;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2);'
+    +'opacity:0;transition:opacity .2s ease';
+  document.body.appendChild(t);
+  requestAnimationFrame(()=>{ t.style.opacity='1'; });
+  setTimeout(()=>{
+    t.style.opacity='0';
+    setTimeout(()=>t.remove(),200);
+  },1800);
+}
+
 async function kitapKaydet(){
   const ad=kAd.value.trim();
-  if(!ad){ alert('Kitap adı gerekli.'); kAd.focus(); return; }
+  if(!ad){ alert('Kitap adı gerekli.'); kAd.focus(); return false; }
   const sev=[...document.querySelectorAll('.sv:checked')].map(c=>Number(c.value)).sort((a,b)=>a-b);
-  if(!sev.length){ alert('En az bir sınıf işaretle.'); return; }
+  if(!sev.length){ alert('En az bir sınıf işaretle.'); return false; }
   const barkod=kBarkod.value.trim();
   const cakisan=KITAPLAR.find(x=>x.barkod===barkod && x.id!==duzenlenenKitap);
-  if(barkod && cakisan){ alert('Bu barkod zaten kayıtlı: '+cakisan.ad); return; }
+  if(barkod && cakisan){ alert('Bu barkod zaten kayıtlı: '+cakisan.ad); return false; }
   const veri={
     ad, yazar:kYazar.value.trim(), turu:kTur.value.trim()||'Belirtilmemiş',
     barkod, seviye:sev, sinif:sinifMetni(sev)
@@ -1172,10 +1218,11 @@ async function kitapKaydet(){
     sonEklenenKitapId=veri.id; // sadece YENİ eklemede vurgula, düzenlemede değil
     setTimeout(()=>{ sonEklenenKitapId=null; }, 1500);
   }
-  await katalogKaydet(); kapat('kForm');
+  const basarili=await katalogKaydet(); kapat('kForm');
   const acilanId = duzenlenenKitap ?? veri.id;
   duzenlenenKitap=null;
   kur(); kunyeCiz(acilanId);
+  return basarili;
 }
 async function kitapSil(id){
   const k=KITAPLAR.find(x=>x.id===id); if(!k)return;
@@ -1240,7 +1287,7 @@ function hesapTuru(){
 }
 async function hesapKaydet(){
   const ad=hAd.value.trim();
-  if(!ad){ alert('Hesap adı gerekli.'); hAd.focus(); return; }
+  if(!ad){ alert('Hesap adı gerekli.'); hAd.focus(); return false; }
   // yeni hesap eklenirken, büyük/küçük harf ve Türkçe karakter farkı gözetmeksizin
   // aynı isim + aynı ilçe/il kombinasyonu var mı kontrol et — "mev koleji" ile "Mev Koleji"
   // gibi yanlışlıkla ikiye bölünmüş kayıtları önlemek için. Sadece isme bakmıyoruz çünkü
@@ -1259,7 +1306,7 @@ async function hesapKaydet(){
     if(cakisan){
       const yer = cakisan.ilce||cakisan.il ? ` (${cakisan.ilce||cakisan.il})` : '';
       const devamEt = confirm(`"${cakisan.ad}"${yer} adında bir hesap zaten var.\n\nAynı okulu mu tekrar eklemeye çalışıyorsun, yoksa gerçekten farklı bir okul mu?\n\nAynı okulsa "İptal" de — Hesaplar sekmesinden mevcut kaydı bul.\nGerçekten farklı bir okulsa "Tamam" de, ayrı bir kayıt olarak eklenecek.`);
-      if(!devamEt) return;
+      if(!devamEt) return false;
     }
   }
   const h={
@@ -1273,12 +1320,13 @@ async function hesapKaydet(){
   };
   if(duzenlenenHesap) hesaplar=hesaplar.map(x=>x.id===duzenlenenHesap?h:x);
   else hesaplar.push(h);
-  await yaz('hesaplar',hesaplar); duzenlenenHesap=null;
+  const basarili=await yaz('hesaplar',hesaplar); duzenlenenHesap=null;
   hFormBaslik.textContent='Yeni hesap';
   ['hAd','hAdres','hNot'].forEach(i=>document.getElementById(i).value='');
   document.querySelectorAll('.kdm').forEach(c=>c.checked=false);
   ilDoldur();
   kapat('hForm'); hesapCiz();
+  return basarili;
 }
 function hesapFormAc(){
   duzenlenenHesap=null; hFormBaslik.textContent='Yeni hesap';
@@ -1297,15 +1345,21 @@ function hesapDuzenle(id){
 }
 async function hesapSil(id){
   if(!confirm('Bu hesap ve altındaki ziyaretler silinecek. Onaylıyor musun?'))return;
-  const silinenZiyaretIdler = ziyaretler.filter(z=>z.hesapId===id).map(z=>z.id);
   hesaplar=hesaplar.filter(x=>x.id!==id);
   ziyaretler=ziyaretler.filter(z=>z.hesapId!==id);
-  secimler=secimler.filter(s=>!silinenZiyaretIdler.includes(s.ziyaretId));
+  // secimler kaydının hesapId alanı her zaman dolu (hem eski, ziyaretten türeyen
+  // hem yeni, bağımsız kayıtlarda) — doğrudan hesapId bazlı temizlemek, hangi
+  // kaynaktan geldiğine bakmaksızın hepsini doğru şekilde kapsar.
+  secimler=secimler.filter(s=>s.hesapId!==id);
   await yaz('hesaplar',hesaplar); await yaz('ziyaretler',ziyaretler); await yaz('secimler',secimler); hesapCiz();
   if(zHesapSeciliId===id && typeof zHesapArama!=='undefined' && zHesapArama){
     zHesapSeciliId=null; zHesapArama.value=''; zKademeDoldur(); zKisiDoldur();
   }
   if(ziyaretOkulSecili===id) ziyaretOkulSecili=null;
+  if(typeof secimFiltreHesapId!=='undefined' && secimFiltreHesapId===id){
+    secimFiltreHesapId=null;
+    if(typeof secimFiltreArama!=='undefined' && secimFiltreArama) secimFiltreArama.value='';
+  }
 }
 function kisiFormAc(hid,kid){
   kisiHesapId=hid; duzenlenenKisi=kid??null;
@@ -1318,8 +1372,8 @@ function kisiFormAc(hid,kid){
 }
 async function kisiKaydet(){
   const ad=pAd.value.trim();
-  if(!ad){ alert('Ad Soyad gerekli.'); pAd.focus(); return; }
-  const h=hesaplar.find(x=>x.id===kisiHesapId); if(!h)return;
+  if(!ad){ alert('Ad Soyad gerekli.'); pAd.focus(); return false; }
+  const h=hesaplar.find(x=>x.id===kisiHesapId); if(!h)return false;
   h.kisiler=h.kisiler||[];
   const veri={ad,gorev:pGorev.value.trim(),tel:pTel.value.trim(),mail:pMail.value.trim()};
   let eskiAd=null;
@@ -1330,13 +1384,14 @@ async function kisiKaydet(){
   }else{
     h.kisiler.push({id:yeniId(),...veri});
   }
-  await yaz('hesaplar',hesaplar);
+  const basarili=await yaz('hesaplar',hesaplar);
   // isim değiştiyse, bu kişiyle yapılmış geçmiş ziyaretlerdeki ismi de güncelle
   if(eskiAd && eskiAd!==ad){
     ziyaretler=ziyaretler.map(z => (z.hesapId===kisiHesapId && z.kisi===eskiAd) ? {...z, kisi:ad} : z);
     await yaz('ziyaretler',ziyaretler);
   }
   duzenlenenKisi=null; kisiHesapId=null; kapat('kisiForm'); hesapCiz(true);
+  return basarili;
 }
 async function kisiSil(hid,kid){
   const h=hesaplar.find(x=>x.id===hid); if(!h)return;
@@ -1682,8 +1737,8 @@ function yazarCheckboxSenkron(){
   });
 }
 async function ziyaretKaydet(){
-  if(!zHesapSeciliId){ alert('Listeden bir okul seç.'); zHesapArama.focus(); return; }
-  if(!zTarih.value){ alert('Tarih gerekli.'); zTarih.focus(); return; }
+  if(!zHesapSeciliId){ alert('Listeden bir okul seç.'); zHesapArama.focus(); return false; }
+  if(!zTarih.value){ alert('Tarih gerekli.'); zTarih.focus(); return false; }
   const kisi = zKisi.value==='__yeni' ? zKisiYeni.value.trim() : zKisi.value;
   const veri={
     hesapId:zHesapSeciliId, tarih:zTarih.value,
@@ -1700,8 +1755,9 @@ async function ziyaretKaydet(){
     ziyaretId=yeniId();
     ziyaretler.push({id:ziyaretId,...veri,ekleyen:ben});
   }
-  await yaz('ziyaretler',ziyaretler);
+  const basarili=await yaz('ziyaretler',ziyaretler);
   duzenlenenZiyaret=null; secilenKitaplar=[]; secilenCiz(); kapat('zForm'); ziyaretCiz();
+  return basarili;
 }
 async function ziyaretSil(id){
   if(!confirm('Bu ziyaret kaydı silinecek. Onaylıyor musun?'))return;
@@ -1866,15 +1922,16 @@ function secimKitapSeciliCiz(){
 }
 
 async function secimEkle(){
-  if(!secimHesapSeciliId){ alert('Listeden bir okul seç.'); secimHesapArama.focus(); return; }
-  if(!secimTarih.value){ alert('Tarih gerekli.'); secimTarih.focus(); return; }
-  if(!secimSecilenKitaplar.length){ alert('En az bir kitap seç.'); return; }
+  if(!secimHesapSeciliId){ alert('Listeden bir okul seç.'); secimHesapArama.focus(); return false; }
+  if(!secimTarih.value){ alert('Tarih gerekli.'); secimTarih.focus(); return false; }
+  if(!secimSecilenKitaplar.length){ alert('En az bir kitap seç.'); return false; }
   const tarih=secimTarih.value, hesapId=secimHesapSeciliId;
   secimSecilenKitaplar.forEach(kitapId=>{
     secimler.push({id:yeniId(), ziyaretId:null, hesapId, kitapId, tarih, satildi:false, adet:null, not:''});
   });
-  await yaz('secimler', secimler);
+  const basarili=await yaz('secimler', secimler);
   kapat('secimForm'); secimCiz();
+  return basarili;
 }
 
 function secimCiz(){
@@ -2213,9 +2270,10 @@ function yedekYukle(input){
     if(!p || !Array.isArray(p.katalog)){ alert('Yedek dosyası eksik ya da bozuk.'); input.value=''; return; }
     if(!confirm(`Yedekteki veri yüklenecek ve şu anki veriler değişecek — herkesin ortak Supabase veritabanında.\n\nYedek tarihi: ${p.tarih?p.tarih.slice(0,10):'bilinmiyor'}\n${p.katalog.length} kitap, ${(p.hesaplar||[]).length} hesap, ${(p.ziyaretler||[]).length} ziyaret\n\nDevam edilsin mi?`)){ input.value=''; return; }
     // açık formları kapat, düzenleme durumlarını sıfırla — yanlış kayıt güncellemesini önle
-    kapat('hForm'); kapat('kForm'); kapat('zForm'); kapat('kisiForm');
+    kapat('hForm'); kapat('kForm'); kapat('zForm'); kapat('kisiForm'); kapat('secimForm');
     duzenlenenHesap=null; duzenlenenKitap=null; duzenlenenZiyaret=null; duzenlenenKisi=null; kisiHesapId=null;
     zHesapSeciliId=null; secilenKitaplar=[];
+    secimHesapSeciliId=null; secimSecilenKitaplar=[]; secimFiltreHesapId=null;
     KITAPLAR=p.katalog;
     hesaplar=p.hesaplar||[]; ziyaretler=p.ziyaretler||[]; secimler=p.secimler||[];
     kullanicilar=p.kullanicilar||['Pelin','Ömer'];
