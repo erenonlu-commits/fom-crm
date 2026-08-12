@@ -1181,14 +1181,15 @@ async function butonlaKaydet(buton, islemFn){
   buton.disabled=true; buton.textContent='Kaydediliyor…';
   try{
     const sonuc=await islemFn();
-    if(sonuc!==false) kaydedildiGoster();
+    if(sonuc==='guncellendi') kaydedildiGoster('✏️ Güncellendi');
+    else if(sonuc!==false) kaydedildiGoster('✅ Eklendi');
   } finally {
     buton.disabled=false; buton.textContent=eskiMetin;
   }
 }
-function kaydedildiGoster(){
+function kaydedildiGoster(mesaj='✓ Kaydedildi'){
   const t=document.createElement('div');
-  t.textContent='✓ Kaydedildi';
+  t.textContent=mesaj;
   t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);'
     +'background:var(--ink);color:#fff;padding:10px 18px;border-radius:10px;'
     +'font-size:14px;font-weight:600;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.2);'
@@ -1209,11 +1210,12 @@ async function kitapKaydet(){
   const barkod=kBarkod.value.trim();
   const cakisan=KITAPLAR.find(x=>x.barkod===barkod && x.id!==duzenlenenKitap);
   if(barkod && cakisan){ alert('Bu barkod zaten kayıtlı: '+cakisan.ad); return false; }
+  const duzenlemeMi=duzenlenenKitap!=null;
   const veri={
     ad, yazar:kYazar.value.trim(), turu:kTur.value.trim()||'Belirtilmemiş',
     barkod, seviye:sev, sinif:sinifMetni(sev)
   };
-  if(duzenlenenKitap!=null){
+  if(duzenlemeMi){
     KITAPLAR=KITAPLAR.map(x=>x.id===duzenlenenKitap?{...x,...veri}:x);
   }else{
     veri.id=yeniId();
@@ -1225,7 +1227,8 @@ async function kitapKaydet(){
   const acilanId = duzenlenenKitap ?? veri.id;
   duzenlenenKitap=null;
   kur(); kunyeCiz(acilanId);
-  return basarili;
+  if(!basarili) return false;
+  return duzenlemeMi ? 'guncellendi' : true;
 }
 async function kitapSil(id){
   const k=KITAPLAR.find(x=>x.id===id); if(!k)return;
@@ -1312,6 +1315,7 @@ async function hesapKaydet(){
       if(!devamEt) return false;
     }
   }
+  const duzenlemeMi=duzenlenenHesap!=null;
   const h={
     id: duzenlenenHesap ?? yeniId(),
     ad, tur:hTur.value,
@@ -1329,7 +1333,8 @@ async function hesapKaydet(){
   document.querySelectorAll('.kdm').forEach(c=>c.checked=false);
   ilDoldur();
   kapat('hForm'); hesapCiz();
-  return basarili;
+  if(!basarili) return false;
+  return duzenlemeMi ? 'guncellendi' : true;
 }
 function hesapFormAc(){
   duzenlenenHesap=null; hFormBaslik.textContent='Yeni hesap';
@@ -1379,8 +1384,9 @@ async function kisiKaydet(){
   const h=hesaplar.find(x=>x.id===kisiHesapId); if(!h)return false;
   h.kisiler=h.kisiler||[];
   const veri={ad,gorev:pGorev.value.trim(),tel:pTel.value.trim(),mail:pMail.value.trim()};
+  const duzenlemeMi=duzenlenenKisi!=null;
   let eskiAd=null;
-  if(duzenlenenKisi!=null){
+  if(duzenlemeMi){
     const eskiKisi=h.kisiler.find(x=>x.id===duzenlenenKisi);
     if(eskiKisi) eskiAd=eskiKisi.ad;
     h.kisiler=h.kisiler.map(x=>x.id===duzenlenenKisi?{...x,...veri}:x);
@@ -1394,7 +1400,8 @@ async function kisiKaydet(){
     await yaz('ziyaretler',ziyaretler);
   }
   duzenlenenKisi=null; kisiHesapId=null; kapat('kisiForm'); hesapCiz(true);
-  return basarili;
+  if(!basarili) return false;
+  return duzenlemeMi ? 'guncellendi' : true;
 }
 async function kisiSil(hid,kid){
   const h=hesaplar.find(x=>x.id===hid); if(!h)return;
@@ -1751,7 +1758,8 @@ async function ziyaretKaydet(){
     kitaplar:[...secilenKitaplar]
   };
   let ziyaretId;
-  if(duzenlenenZiyaret!=null){
+  const duzenlemeMi=duzenlenenZiyaret!=null;
+  if(duzenlemeMi){
     ziyaretId=duzenlenenZiyaret;
     ziyaretler=ziyaretler.map(z=>z.id===duzenlenenZiyaret?{...z,...veri,duzenleyen:ben}:z);
   }else{
@@ -1760,7 +1768,8 @@ async function ziyaretKaydet(){
   }
   const basarili=await yaz('ziyaretler',ziyaretler);
   duzenlenenZiyaret=null; secilenKitaplar=[]; secilenCiz(); kapat('zForm'); ziyaretCiz();
-  return basarili;
+  if(!basarili) return false;
+  return duzenlemeMi ? 'guncellendi' : true;
 }
 async function ziyaretSil(id){
   if(!confirm('Bu ziyaret kaydı silinecek. Onaylıyor musun?'))return;
