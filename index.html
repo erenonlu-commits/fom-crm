@@ -946,7 +946,7 @@ let ben=null, filtre={q:'',sev:null,tur:''}, ilSecili=null, secilenKitaplar=[],
     duzenlenenHesap=null, duzenlenenKitap=null, duzenlenenZiyaret=null,
     kisiHesapId=null, duzenlenenKisi=null, zHesapSeciliId=null, zGorusmeTuruSecili='Yüz yüze',
     secimHesapSeciliId=null, secimSecilenKitaplar=[], secimFiltreHesapId=null,
-    depoSecilenKitaplar=[], depoBildirimleri=[];
+    depoSecilenKitaplar=[], depoBildirimleri=[], acikHesaplar=new Set();
 const KADEME_SEV={'Anaokulu':[0],'İlkokul':[1,2,3,4],'Ortaokul':[5,6,7,8],'Lise':[9]};
 
 /* Çoklu cihazdan aynı anda kayıt eklenirse ID çakışmasını önleyen üretici.
@@ -1502,6 +1502,7 @@ function hesapCiz(korunanIl){
   const liste = ilSecili?hesaplar.filter(h=>h.il===ilSecili):hesaplar;
   hesapListe.innerHTML = liste.length ? liste.map(h=>{
     const zs=ziyaretler.filter(z=>z.hesapId===h.id).length;
+    const acikMi=acikHesaplar.has(h.id);
     const kisiler=(h.kisiler||[]).map(k=>`<div class="person">
       <div><b>${esc(k.ad)}</b>${k.gorev?` · ${esc(k.gorev)}`:''}<div class="d">${esc(k.tel)}${k.tel&&k.mail?' · ':''}${esc(k.mail)}</div></div>
       <div style="display:flex;gap:4px;flex:none">
@@ -1509,14 +1510,7 @@ function hesapCiz(korunanIl){
         <button class="btn link" onclick="kisiSil(${h.id},${k.id})">sil</button>
       </div></div>`).join('')
       || `<p style="font-size:13.5px;color:var(--ink-soft)">Henüz kişi eklenmedi.</p>`;
-    return `<article class="rec">
-      <div class="rec-h"><h4>${esc(h.ad)}</h4><span class="price">${zs} ziyaret</span></div>
-      <div class="tags">
-        <span class="tag g">${esc(h.tur)}</span>
-        ${h.ozel?`<span class="tag">${esc(h.ozel)}</span>`:''}
-        ${(h.kademe||[]).map(k=>`<span class="tag">${esc(k)}</span>`).join('')}
-        ${h.il?`<span class="tag o">${esc(h.il)}${h.ilce?' / '+esc(h.ilce):''}</span>`:''}
-      </div>
+    const detay = acikMi ? `
       ${h.adres?`<dl><dt>Adres</dt><dd>${esc(h.adres)}</dd></dl>`:''}
       ${h.not?`<div class="note">${esc(h.not)}</div>`:''}
       <div class="sub"><div class="sub-h">Kişiler</div>${kisiler}
@@ -1524,9 +1518,23 @@ function hesapCiz(korunanIl){
       <div class="acts" style="margin-top:13px">
         <button class="btn ghost sm" onclick="hesapDuzenle(${h.id})">Düzenle</button>
         <button class="btn link" onclick="hesapSil(${h.id})">Sil</button>
+      </div>` : '';
+    return `<article class="rec">
+      <div class="rec-h" style="cursor:pointer" onclick="hesapDetayToggle(${h.id})"><h4>${esc(h.ad)}</h4><span class="price">${zs} ziyaret</span></div>
+      <div class="tags">
+        <span class="tag g">${esc(h.tur)}</span>
+        ${h.ozel?`<span class="tag">${esc(h.ozel)}</span>`:''}
+        ${(h.kademe||[]).map(k=>`<span class="tag">${esc(k)}</span>`).join('')}
+        ${h.il?`<span class="tag o">${esc(h.il)}${h.ilce?' / '+esc(h.ilce):''}</span>`:''}
       </div>
+      ${detay}
     </article>`;
   }).join('') : `<div class="empty"><b>Henüz hesap yok</b><p>İlk okulu veya dağıtımcıyı ekleyerek başla.</p></div>`;
+}
+function hesapDetayToggle(id){
+  if(acikHesaplar.has(id)) acikHesaplar.delete(id);
+  else acikHesaplar.add(id);
+  hesapCiz(true);
 }
 
 /* ---------- ziyaretler ---------- */
