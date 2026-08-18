@@ -308,6 +308,13 @@ select.tur{
   background:var(--line-soft);font-size:13px;font-weight:500;
 }
 .chip button{color:var(--ink-soft);font-size:15px;line-height:1;padding:0 2px}
+.skitap-satir{
+  display:flex;align-items:center;gap:8px;width:100%;padding:7px 9px;
+  border-radius:6px;background:var(--line-soft);
+}
+.skitap-satir span{flex:1;font-size:13px;font-weight:500}
+.skitap-satir input[type="number"]{width:64px;text-align:center;padding:5px 4px}
+.skitap-satir button{color:var(--ink-soft);font-size:15px;line-height:1;padding:0 2px;flex:none}
 .picker{max-height:190px;overflow-y:auto;border:1.5px solid var(--line);border-radius:8px;margin-top:7px}
 .picker button{
   display:block;width:100%;text-align:left;padding:9px 12px;font-size:14px;
@@ -535,6 +542,17 @@ input[type="date"]:hover::-webkit-calendar-picker-indicator{opacity:1}
         </div>
         <div class="f"><label for="hAdres">Adres</label><input id="hAdres" placeholder="Açık adres"></div>
         <div class="f"><label for="hNot">Not</label><textarea id="hNot" placeholder="Bu hesapla ilgili genel notlar"></textarea></div>
+        <div id="hIlkKisiWrap">
+          <div class="f"><label>İlk kişi <span style="font-weight:400;color:var(--ink-soft)">(opsiyonel)</span></label></div>
+          <div class="g2">
+            <div class="f" style="margin:0"><label for="hKisiAd">Ad Soyad</label><input id="hKisiAd" placeholder="Örn. Ayşe Öğretmen"></div>
+            <div class="f" style="margin:0"><label for="hKisiGorev">Görev</label><input id="hKisiGorev" placeholder="Örn. Rehber Öğretmen"></div>
+          </div>
+          <div class="g2">
+            <div class="f" style="margin:0"><label for="hKisiTel">Telefon</label><input id="hKisiTel" type="tel" placeholder="05xx xxx xx xx"></div>
+            <div class="f" style="margin:0"><label for="hKisiMail">E-posta</label><input id="hKisiMail" type="email" placeholder="ad@okul.k12.tr"></div>
+          </div>
+        </div>
         <div class="acts">
           <button class="btn" onclick="butonlaKaydet(this,hesapKaydet)">Kaydet</button>
           <button class="btn ghost" onclick="kapat('hForm')">Vazgeç</button>
@@ -655,7 +673,17 @@ input[type="date"]:hover::-webkit-calendar-picker-indicator{opacity:1}
                  oninput="secimHesapAra()" onfocus="secimHesapAra()" onkeydown="oneriKlavye(event,secimHesapOneri,this)">
           <div class="picker" id="secimHesapOneri" style="display:none"></div>
         </div>
-        <div class="f"><label for="secimTarih">Tarih <span class="req">*</span></label><input type="date" id="secimTarih"></div>
+        <div class="g2">
+          <div class="f" style="margin:0"><label for="secimTarih">Tarih <span class="req">*</span></label><input type="date" id="secimTarih"></div>
+          <div class="f" style="margin:0"><label for="secimDonem">Dönem</label>
+            <select id="secimDonem">
+              <option value="2024-2025">2024-2025</option>
+              <option value="2025-2026">2025-2026</option>
+              <option value="2026-2027">2026-2027</option>
+              <option value="2027-2028">2027-2028</option>
+            </select>
+          </div>
+        </div>
         <div class="f">
           <label>Kitaplar <span class="req">*</span></label>
           <button type="button" class="acilir" id="secimKitapAcButon" onclick="secimKitapPanelAc()">
@@ -852,8 +880,8 @@ function hesapToDB(h){ return {id:h.id, ad:h.ad, tur:h.tur, ozel:h.ozel||null, k
 function ziyaretFromDB(r){ return {id:r.id, hesapId:r.hesap_id, tarih:r.tarih, kademe:r.kademe||'', gorusmeTuru:r.gorusme_turu||'', kisi:r.kisi||'', not:r.aciklama||'', kitaplar:r.kitaplar||[], ekleyen:r.ekleyen||'', duzenleyen:r.duzenleyen||''}; }
 function ziyaretToDB(z){ return {id:z.id, hesap_id:z.hesapId, tarih:z.tarih, kademe:z.kademe||null, gorusme_turu:z.gorusmeTuru||null, kisi:z.kisi||null, aciklama:z.not||null, kitaplar:z.kitaplar||[], ekleyen:z.ekleyen||null, duzenleyen:z.duzenleyen||null}; }
 
-function secimFromDB(r){ return {id:r.id, ziyaretId:r.ziyaret_id, hesapId:r.hesap_id, kitapId:r.kitap_id, tarih:r.tarih, satildi:!!r.satildi, adet:(r.adet==null?null:r.adet), not:r.aciklama||''}; }
-function secimToDB(s){ return {id:s.id, ziyaret_id:s.ziyaretId??null, hesap_id:s.hesapId, kitap_id:s.kitapId, tarih:s.tarih, satildi:!!s.satildi, adet:(s.adet==null?null:s.adet), aciklama:s.not||''}; }
+function secimFromDB(r){ return {id:r.id, ziyaretId:r.ziyaret_id, hesapId:r.hesap_id, kitapId:r.kitap_id, tarih:r.tarih, donem:r.donem||'', satildi:!!r.satildi, adet:(r.adet==null?null:r.adet), not:r.aciklama||''}; }
+function secimToDB(s){ return {id:s.id, ziyaret_id:s.ziyaretId??null, hesap_id:s.hesapId, kitap_id:s.kitapId, tarih:s.tarih, donem:s.donem||null, satildi:!!s.satildi, adet:(s.adet==null?null:s.adet), aciklama:s.not||''}; }
 function depoBildirimiFromDB(r){ return {id:r.id, okulAdi:r.okul_adi, kitapId:r.kitap_id, tarih:r.tarih, gonderildi:!!r.gonderildi, olusturan:r.olusturan||''}; }
 function depoBildirimiToDB(d){ return {id:d.id, okul_adi:d.okulAdi, kitap_id:d.kitapId, tarih:d.tarih, gonderildi:!!d.gonderildi, olusturan:d.olusturan||''}; }
 
@@ -945,8 +973,8 @@ async function katalogKaydet(){
 let ben=null, filtre={q:'',sev:null,tur:''}, ilSecili=null, secilenKitaplar=[],
     duzenlenenHesap=null, duzenlenenKitap=null, duzenlenenZiyaret=null,
     kisiHesapId=null, duzenlenenKisi=null, zHesapSeciliId=null, zGorusmeTuruSecili='Yüz yüze',
-    secimHesapSeciliId=null, secimSecilenKitaplar=[], secimFiltreHesapId=null,
-    depoSecilenKitaplar=[], depoBildirimleri=[], acikHesaplar=new Set();
+    secimHesapSeciliId=null, secimSecilenKitaplar=[], secimFiltreHesapId=null, secimKitapAdetleri={},
+    depoSecilenKitaplar=[], depoBildirimleri=[], acikHesaplar=new Set(), acikZiyaretler=new Set();
 const KADEME_SEV={'Anaokulu':[0],'İlkokul':[1,2,3,4],'Ortaokul':[5,6,7,8],'Lise':[9]};
 
 /* Çoklu cihazdan aynı anda kayıt eklenirse ID çakışmasını önleyen üretici.
@@ -1381,20 +1409,27 @@ async function hesapKaydet(){
     }
   }
   const duzenlemeMi=duzenlenenHesap!=null;
+  // yeni hesap eklenirken, "İlk kişi" alanları doldurulmuşsa, hesabı kurarken
+  // aynı anda ilk kişiyi de ekle — ayrı bir "Kişi ekle" adımına gerek kalmasın.
+  const ilkKisiAdi = hKisiAd.value.trim();
+  const ilkKisi = (!duzenlemeMi && ilkKisiAdi) ? [{
+    id: yeniId(), ad: ilkKisiAdi,
+    gorev: hKisiGorev.value.trim(), tel: hKisiTel.value.trim(), mail: hKisiMail.value.trim()
+  }] : [];
   const h={
     id: duzenlenenHesap ?? yeniId(),
     ad, tur:hTur.value,
     ozel: hTur.value==='Okul'?hOzel.value:'',
     kademe:[...document.querySelectorAll('.kdm:checked')].map(c=>c.value),
     il:hIl.value, ilce:hIlce.value, adres:hAdres.value.trim(), not:hNot.value.trim(),
-    kisiler: duzenlenenHesap ? (hesaplar.find(x=>x.id===duzenlenenHesap)?.kisiler||[]) : [],
+    kisiler: duzenlemeMi ? (hesaplar.find(x=>x.id===duzenlenenHesap)?.kisiler||[]) : ilkKisi,
     ekleyen: ben
   };
   if(duzenlenenHesap) hesaplar=hesaplar.map(x=>x.id===duzenlenenHesap?h:x);
   else hesaplar.push(h);
   const basarili=await yaz('hesaplar',hesaplar); duzenlenenHesap=null;
   hFormBaslik.textContent='Yeni hesap';
-  ['hAd','hAdres','hNot'].forEach(i=>document.getElementById(i).value='');
+  ['hAd','hAdres','hNot','hKisiAd','hKisiGorev','hKisiTel','hKisiMail'].forEach(i=>document.getElementById(i).value='');
   document.querySelectorAll('.kdm').forEach(c=>c.checked=false);
   ilDoldur();
   kapat('hForm'); hesapCiz();
@@ -1403,8 +1438,9 @@ async function hesapKaydet(){
 }
 function hesapFormAc(){
   duzenlenenHesap=null; hFormBaslik.textContent='Yeni hesap';
-  ['hAd','hAdres','hNot'].forEach(i=>document.getElementById(i).value='');
+  ['hAd','hAdres','hNot','hKisiAd','hKisiGorev','hKisiTel','hKisiMail'].forEach(i=>document.getElementById(i).value='');
   document.querySelectorAll('.kdm').forEach(c=>c.checked=false);
+  hIlkKisiWrap.style.display='block';
   hesapTuruDoldur(); ilDoldur(); ac('hForm'); hAd.focus();
 }
 function hesapDuzenle(id){
@@ -1414,6 +1450,7 @@ function hesapDuzenle(id){
   hAd.value=h.ad; hTur.value=h.tur; hOzel.value=h.ozel||'Devlet';
   hAdres.value=h.adres; hNot.value=h.not;
   document.querySelectorAll('.kdm').forEach(c=>c.checked=(h.kademe||[]).includes(c.value));
+  hIlkKisiWrap.style.display='none'; // düzenlemede mevcut kişiler zaten var, "Kişi ekle" ayrı yapılır
   hesapTuru(); ac('hForm'); hForm.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 async function hesapSil(id){
@@ -1880,22 +1917,30 @@ function ziyaretCiz(korunanFiltre){
     }).join('');
     const d=tarihFormatla(z.tarih);
     const okulAdiIlce = h ? `${esc(h.ad)}${h.ilce||h.il?` — ${esc(h.ilce||h.il)}`:''}` : 'Silinmiş hesap';
+    const acikMi=acikZiyaretler.has(z.id);
+    const detay = acikMi ? `
+      ${z.not?`<div class="note">${esc(z.not)}</div>`:''}
+      ${kt?`<div class="sub"><div class="sub-h">Gösterilen kitaplar</div><div class="tags">${kt}</div></div>`:''}
+      <div class="acts" style="margin-top:11px">
+        <button class="btn ghost sm" onclick="ziyaretAc(${z.id})">Düzenle</button>
+        <button class="btn link" onclick="ziyaretSil(${z.id})">Sil</button>
+      </div>` : '';
     return `<article class="rec">
-      <div class="rec-h"><h4>${okulAdiIlce}</h4><span class="barcode">${esc(d)}</span></div>
+      <div class="rec-h" style="cursor:pointer" onclick="ziyaretDetayToggle(${z.id})"><h4>${okulAdiIlce}</h4><span class="barcode">${esc(d)}</span></div>
       <div class="tags">
         <span class="tag g">${esc(z.gorusmeTuru||'Yüz yüze')}</span>
         ${z.kademe?`<span class="tag">${esc(z.kademe)}</span>`:''}
         ${z.kisi?`<span class="tag">${esc(z.kisi)}</span>`:''}
         <span class="tag">${esc(z.ekleyen)}</span>
       </div>
-      ${z.not?`<div class="note">${esc(z.not)}</div>`:''}
-      ${kt?`<div class="sub"><div class="sub-h">Gösterilen kitaplar</div><div class="tags">${kt}</div></div>`:''}
-      <div class="acts" style="margin-top:11px">
-        <button class="btn ghost sm" onclick="ziyaretAc(${z.id})">Düzenle</button>
-        <button class="btn link" onclick="ziyaretSil(${z.id})">Sil</button>
-      </div>
+      ${detay}
     </article>`;
   }).join('') : `<div class="empty"><b>Henüz ziyaret yok</b><p>Bir okula gittikten sonra görüşmeyi buraya yaz.</p></div>`;
+}
+function ziyaretDetayToggle(id){
+  if(acikZiyaretler.has(id)) acikZiyaretler.delete(id);
+  else acikZiyaretler.add(id);
+  ziyaretCiz(true);
 }
 
 const IL_ILCE = {"Adana":["Aladağ","Ceyhan","Çukurova","Feke","İmamoğlu","Karaisalı","Karataş","Kozan","Pozantı","Saimbeyli","Sarıçam","Seyhan","Tufanbeyli","Yumurtalık","Yüreğir"],"Adıyaman":["Besni","Çelikhan","Gerger","Gölbaşı","Kahta","Merkez","Samsat","Sincik","Tut"],"Afyonkarahisar":["Başmakçı","Bayat","Bolvadin","Çay","Çobanlar","Dazkırı","Dinar","Emirdağ","Evciler","Hocalar","İhsaniye","İscehisar","Kızılören","Merkez","Sandıklı","Sinanpaşa","Sultandağı","Şuhut"],"Ağrı":["Diyadin","Doğubayazıt","Eleşkirt","Hamur","Merkez","Patnos","Taşlıçay","Tutak"],"Aksaray":["Ağaçören","Eskil","Gülağaç","Güzelyurt","Merkez","Ortaköy","Sarıyahşi","Sultanhanı"],"Amasya":["Göynücek","Gümüşhacıköy","Hamamözü","Merkez","Merzifon","Suluova","Taşova"],"Ankara":["Akyurt","Altındağ","Ayaş","Bala","Beypazarı","Çamlıdere","Çankaya","Çubuk","Elmadağ","Etimesgut","Evren","Gölbaşı","Güdül","Haymana","Kahramankazan","Kalecik","Keçiören","Kızılcahamam","Mamak","Nallıhan","Polatlı","Pursaklar","Sincan","Şereflikoçhisar","Yenimahalle"],"Antalya":["Akseki","Aksu","Alanya","Demre","Döşemealtı","Elmalı","Finike","Gazipaşa","Gündoğmuş","İbradı","Kaş","Kemer","Kepez","Konyaaltı","Korkuteli","Kumluca","Manavgat","Muratpaşa","Serik"],"Ardahan":["Çıldır","Damal","Göle","Hanak","Merkez","Posof"],"Artvin":["Ardanuç","Arhavi","Borçka","Hopa","Kemalpaşa","Merkez","Murgul","Şavşat","Yusufeli"],"Aydın":["Bozdoğan","Buharkent","Çine","Didim","Efeler","Germencik","İncirliova","Karacasu","Karpuzlu","Koçarlı","Köşk","Kuşadası","Kuyucak","Nazilli","Söke","Sultanhisar","Yenipazar"],"Balıkesir":["Altıeylül","Ayvalık","Balya","Bandırma","Bigadiç","Burhaniye","Dursunbey","Edremit","Erdek","Gömeç","Gönen","Havran","İvrindi","Karesi","Kepsut","Manyas","Marmara","Savaştepe","Sındırgı","Susurluk"],"Bartın":["Amasra","Kurucaşile","Merkez","Ulus"],"Batman":["Beşiri","Gercüş","Hasankeyf","Kozluk","Merkez","Sason"],"Bayburt":["Aydıntepe","Demirözü","Merkez"],"Bilecik":["Bozüyük","Gölpazarı","İnhisar","Merkez","Osmaneli","Pazaryeri","Söğüt","Yenipazar"],"Bingöl":["Adaklı","Genç","Karlıova","Kiğı","Merkez","Solhan","Yayladere","Yedisu"],"Bitlis":["Adilcevaz","Ahlat","Güroymak","Hizan","Merkez","Mutki","Tatvan"],"Bolu":["Dörtdivan","Gerede","Göynük","Kıbrıscık","Mengen","Merkez","Mudurnu","Seben","Yeniçağa"],"Burdur":["Ağlasun","Altınyayla","Bucak","Çavdır","Çeltikçi","Gölhisar","Karamanlı","Kemer","Merkez","Tefenni","Yeşilova"],"Bursa":["Büyükorhan","Gemlik","Gürsu","Harmancık","İnegöl","İznik","Karacabey","Keles","Kestel","Mudanya","Mustafakemalpaşa","Nilüfer","Orhaneli","Orhangazi","Osmangazi","Yenişehir","Yıldırım"],"Çanakkale":["Ayvacık","Bayramiç","Biga","Bozcaada","Çan","Eceabat","Ezine","Gelibolu","Gökçeada","Lapseki","Merkez","Yenice"],"Çankırı":["Atkaracalar","Bayramören","Çerkeş","Eldivan","Ilgaz","Kızılırmak","Korgun","Kurşunlu","Merkez","Orta","Şabanözü","Yapraklı"],"Çorum":["Alaca","Bayat","Boğazkale","Dodurga","İskilip","Kargı","Laçin","Mecitözü","Merkez","Oğuzlar","Ortaköy","Osmancık","Sungurlu","Uğurludağ"],"Denizli":["Acıpayam","Babadağ","Baklan","Bekilli","Beyağaç","Bozkurt","Buldan","Çal","Çameli","Çardak","Çivril","Güney","Honaz","Kale","Merkezefendi","Pamukkale","Sarayköy","Serinhisar","Tavas"],"Diyarbakır":["Bağlar","Bismil","Çermik","Çınar","Çüngüş","Dicle","Eğil","Ergani","Hani","Hazro","Kayapınar","Kocaköy","Kulp","Lice","Silvan","Sur","Yenişehir"],"Düzce":["Akçakoca","Cumayeri","Çilimli","Gölyaka","Gümüşova","Kaynaşlı","Merkez","Yığılca"],"Edirne":["Enez","Havsa","İpsala","Keşan","Lalapaşa","Meriç","Merkez","Süloğlu","Uzunköprü"],"Elazığ":["Ağın","Alacakaya","Arıcak","Baskil","Karakoçan","Keban","Kovancılar","Maden","Merkez","Palu","Sivrice"],"Erzincan":["Çayırlı","İliç","Kemah","Kemaliye","Merkez","Otlukbeli","Refahiye","Tercan","Üzümlü"],"Erzurum":["Aşkale","Aziziye","Çat","Hınıs","Horasan","İspir","Karaçoban","Karayazı","Köprüköy","Narman","Oltu","Olur","Palandöken","Pasinler","Pazaryolu","Şenkaya","Tekman","Tortum","Uzundere","Yakutiye"],"Eskişehir":["Alpu","Beylikova","Çifteler","Günyüzü","Han","İnönü","Mahmudiye","Mihalgazi","Mihalıççık","Odunpazarı","Sarıcakaya","Seyitgazi","Sivrihisar","Tepebaşı"],"Gaziantep":["Araban","İslahiye","Karkamış","Nizip","Nurdağı","Oğuzeli","Şahinbey","Şehitkamil","Yavuzeli"],"Giresun":["Alucra","Bulancak","Çamoluk","Çanakçı","Dereli","Doğankent","Espiye","Eynesil","Görele","Güce","Keşap","Merkez","Piraziz","Şebinkarahisar","Tirebolu","Yağlıdere"],"Gümüşhane":["Kelkit","Köse","Kürtün","Merkez","Şiran","Torul"],"Hakkari":["Çukurca","Derecik","Merkez","Şemdinli","Yüksekova"],"Hatay":["Altınözü","Antakya","Arsuz","Belen","Defne","Dörtyol","Erzin","Hassa","İskenderun","Kırıkhan","Kumlu","Payas","Reyhanlı","Samandağ","Yayladağı"],"Iğdır":["Aralık","Karakoyunlu","Merkez","Tuzluca"],"Isparta":["Aksu","Atabey","Eğirdir","Gelendost","Gönen","Keçiborlu","Merkez","Senirkent","Sütçüler","Şarkikaraağaç","Uluborlu","Yalvaç","Yenişarbademli"],"İstanbul":["Adalar","Arnavutköy","Ataşehir","Avcılar","Bağcılar","Bahçelievler","Bakırköy","Başakşehir","Bayrampaşa","Beşiktaş","Beykoz","Beylikdüzü","Beyoğlu","Büyükçekmece","Çatalca","Çekmeköy","Esenler","Esenyurt","Eyüpsultan","Fatih","Gaziosmanpaşa","Güngören","Kadıköy","Kağıthane","Kartal","Küçükçekmece","Maltepe","Pendik","Sancaktepe","Sarıyer","Silivri","Sultanbeyli","Sultangazi","Şile","Şişli","Tuzla","Ümraniye","Üsküdar","Zeytinburnu"],"İzmir":["Aliağa","Balçova","Bayındır","Bayraklı","Bergama","Beydağ","Bornova","Buca","Çeşme","Çiğli","Dikili","Foça","Gaziemir","Güzelbahçe","Karabağlar","Karaburun","Karşıyaka","Kemalpaşa","Kınık","Kiraz","Konak","Menderes","Menemen","Narlıdere","Ödemiş","Seferihisar","Selçuk","Tire","Torbalı","Urla"],"Kahramanmaraş":["Afşin","Andırın","Çağlayancerit","Dulkadiroğlu","Ekinözü","Elbistan","Göksun","Nurhak","Onikişubat","Pazarcık","Türkoğlu"],"Karabük":["Eflani","Eskipazar","Merkez","Ovacık","Safranbolu","Yenice"],"Karaman":["Ayrancı","Başyayla","Ermenek","Kazımkarabekir","Merkez","Sarıveliler"],"Kars":["Akyaka","Arpaçay","Digor","Kağızman","Merkez","Sarıkamış","Selim","Susuz"],"Kastamonu":["Abana","Ağlı","Araç","Azdavay","Bozkurt","Cide","Çatalzeytin","Daday","Devrekani","Doğanyurt","Hanönü","İhsangazi","İnebolu","Küre","Merkez","Pınarbaşı","Seydiler","Şenpazar","Taşköprü","Tosya"],"Kayseri":["Akkışla","Bünyan","Develi","Felahiye","Hacılar","İncesu","Kocasinan","Melikgazi","Özvatan","Pınarbaşı","Sarıoğlan","Sarız","Talas","Tomarza","Yahyalı","Yeşilhisar"],"Kırıkkale":["Bahşılı","Balışeyh","Çelebi","Delice","Karakeçili","Keskin","Merkez","Sulakyurt","Yahşihan"],"Kırklareli":["Babaeski","Demirköy","Kofçaz","Lüleburgaz","Merkez","Pehlivanköy","Pınarhisar","Vize"],"Kırşehir":["Akçakent","Akpınar","Boztepe","Çiçekdağı","Kaman","Merkez","Mucur"],"Kilis":["Elbeyli","Merkez","Musabeyli","Polateli"],"Kocaeli":["Başiskele","Çayırova","Darıca","Derince","Dilovası","Gebze","Gölcük","İzmit","Kandıra","Karamürsel","Kartepe","Körfez"],"Konya":["Ahırlı","Akören","Akşehir","Altınekin","Beyşehir","Bozkır","Cihanbeyli","Çeltik","Çumra","Derbent","Derebucak","Doğanhisar","Emirgazi","Ereğli","Güneysınır","Hadim","Halkapınar","Hüyük","Ilgın","Kadınhanı","Karapınar","Karatay","Kulu","Meram","Sarayönü","Selçuklu","Seydişehir","Taşkent","Tuzlukçu","Yalıhüyük","Yunak"],"Kütahya":["Altıntaş","Aslanapa","Çavdarhisar","Domaniç","Dumlupınar","Emet","Gediz","Hisarcık","Merkez","Pazarlar","Simav","Şaphane","Tavşanlı"],"Malatya":["Akçadağ","Arapgir","Arguvan","Battalgazi","Darende","Doğanşehir","Doğanyol","Hekimhan","Kale","Kuluncak","Pütürge","Yazıhan","Yeşilyurt"],"Manisa":["Ahmetli","Akhisar","Alaşehir","Demirci","Gölmarmara","Gördes","Kırkağaç","Köprübaşı","Kula","Salihli","Sarıgöl","Saruhanlı","Selendi","Soma","Şehzadeler","Turgutlu","Yunusemre"],"Mardin":["Artuklu","Dargeçit","Derik","Kızıltepe","Mazıdağı","Midyat","Nusaybin","Ömerli","Savur","Yeşilli"],"Mersin":["Akdeniz","Anamur","Aydıncık","Bozyazı","Çamlıyayla","Erdemli","Gülnar","Mezitli","Mut","Silifke","Tarsus","Toroslar","Yenişehir"],"Muğla":["Bodrum","Dalaman","Datça","Fethiye","Kavaklıdere","Köyceğiz","Marmaris","Menteşe","Milas","Ortaca","Seydikemer","Ula","Yatağan"],"Muş":["Bulanık","Hasköy","Korkut","Malazgirt","Merkez","Varto"],"Nevşehir":["Acıgöl","Avanos","Derinkuyu","Gülşehir","Hacıbektaş","Kozaklı","Merkez","Ürgüp"],"Niğde":["Altunhisar","Bor","Çamardı","Çiftlik","Merkez","Ulukışla"],"Ordu":["Akkuş","Altınordu","Aybastı","Çamaş","Çatalpınar","Çaybaşı","Fatsa","Gölköy","Gülyalı","Gürgentepe","İkizce","Kabadüz","Kabataş","Korgan","Kumru","Mesudiye","Perşembe","Ulubey","Ünye"],"Osmaniye":["Bahçe","Düziçi","Hasanbeyli","Kadirli","Merkez","Sumbas","Toprakkale"],"Rize":["Ardeşen","Çamlıhemşin","Çayeli","Derepazarı","Fındıklı","Güneysu","Hemşin","İkizdere","İyidere","Kalkandere","Merkez","Pazar"],"Sakarya":["Adapazarı","Akyazı","Arifiye","Erenler","Ferizli","Geyve","Hendek","Karapürçek","Karasu","Kaynarca","Kocaali","Pamukova","Sapanca","Serdivan","Söğütlü","Taraklı"],"Samsun":["Alaçam","Asarcık","Atakum","Ayvacık","Bafra","Canik","Çarşamba","Havza","İlkadım","Kavak","Ladik","Salıpazarı","Tekkeköy","Terme","Vezirköprü","Yakakent","19 Mayıs"],"Siirt":["Baykan","Eruh","Kurtalan","Merkez","Pervari","Şirvan","Tillo"],"Sinop":["Ayancık","Boyabat","Dikmen","Durağan","Erfelek","Gerze","Merkez","Saraydüzü","Türkeli"],"Sivas":["Akıncılar","Altınyayla","Divriği","Doğanşar","Gemerek","Gölova","Gürün","Hafik","İmranlı","Kangal","Koyulhisar","Merkez","Suşehri","Şarkışla","Ulaş","Yıldızeli","Zara"],"Şanlıurfa":["Akçakale","Birecik","Bozova","Ceylanpınar","Eyyübiye","Halfeti","Haliliye","Harran","Hilvan","Karaköprü","Siverek","Suruç","Viranşehir"],"Şırnak":["Beytüşşebap","Cizre","Güçlükonak","İdil","Merkez","Silopi","Uludere"],"Tekirdağ":["Çerkezköy","Çorlu","Ergene","Hayrabolu","Kapaklı","Malkara","Marmaraereğlisi","Muratlı","Saray","Süleymanpaşa","Şarköy"],"Tokat":["Almus","Artova","Başçiftlik","Erbaa","Merkez","Niksar","Pazar","Reşadiye","Sulusaray","Turhal","Yeşilyurt","Zile"],"Trabzon":["Akçaabat","Araklı","Arsin","Beşikdüzü","Çarşıbaşı","Çaykara","Dernekpazarı","Düzköy","Hayrat","Köprübaşı","Maçka","Of","Ortahisar","Sürmene","Şalpazarı","Tonya","Vakfıkebir","Yomra"],"Tunceli":["Çemişgezek","Hozat","Mazgirt","Merkez","Nazımiye","Ovacık","Pertek","Pülümür"],"Uşak":["Banaz","Eşme","Karahallı","Merkez","Sivaslı","Ulubey"],"Van":["Bahçesaray","Başkale","Çaldıran","Çatak","Edremit","Erciş","Gevaş","Gürpınar","İpekyolu","Muradiye","Özalp","Saray","Tuşba"],"Yalova":["Altınova","Armutlu","Çınarcık","Çiftlikköy","Merkez","Termal"],"Yozgat":["Akdağmadeni","Aydıncık","Boğazlıyan","Çandır","Çayıralan","Çekerek","Kadışehri","Merkez","Saraykent","Sarıkaya","Sorgun","Şefaatli","Yenifakılı","Yerköy"],"Zonguldak":["Alaplı","Çaycuma","Devrek","Ereğli","Gökçebey","Kilimli","Kozlu","Merkez"]};
@@ -1930,7 +1975,12 @@ function ilceDoldur(secili){
 function secimFormAc(){
   secimHesapSeciliId=null; secimHesapArama.value=''; secimHesapOneri.style.display='none';
   secimTarih.valueAsDate=new Date();
-  secimSecilenKitaplar=[];
+  secimSecilenKitaplar=[]; secimKitapAdetleri={};
+  // Eylül-Aralık arasıysa yeni dönem (örn. Eylül 2026 → "2026-2027") başlamış sayılır,
+  // Ocak-Ağustos arasıysa hâlâ önceki dönem (örn. Ağustos 2026 → "2025-2026") sürüyor demektir.
+  const simdi=new Date(), yil=simdi.getFullYear(), ay=simdi.getMonth()+1;
+  const donemBaslangic = ay>=9 ? yil : yil-1;
+  secimDonem.value = `${donemBaslangic}-${donemBaslangic+1}`;
   secimKitapPanelKapat(); secimKitapSeciliCiz();
   ac('secimForm'); secimForm.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
@@ -1989,11 +2039,12 @@ function secimKitapListesiCiz(){
 function secimTikliSayiCiz(){ secimTikliSayi.textContent=`${secimSecilenKitaplar.length} seçili`; }
 function secimKitapTikle(id,acik){
   if(acik){ if(!secimSecilenKitaplar.includes(id)) secimSecilenKitaplar.push(id); }
-  else secimSecilenKitaplar=secimSecilenKitaplar.filter(x=>x!==id);
+  else{ secimSecilenKitaplar=secimSecilenKitaplar.filter(x=>x!==id); delete secimKitapAdetleri[id]; }
   secimTikliSayiCiz(); secimKitapSeciliCiz();
 }
 function secimKitapCikar(id){
   secimSecilenKitaplar=secimSecilenKitaplar.filter(x=>x!==id);
+  delete secimKitapAdetleri[id];
   const cb=secimTikliListe.querySelector(`input[value="${id}"]`);
   if(cb) cb.checked=false;
   secimTikliSayiCiz(); secimKitapSeciliCiz();
@@ -2001,9 +2052,18 @@ function secimKitapCikar(id){
 function secimKitapSeciliCiz(){
   secimKitapSecili.innerHTML=secimSecilenKitaplar.map(id=>{
     const k=KITAPLAR.find(x=>x.id===id); if(!k)return '';
-    return `<span class="chip">${esc(k.ad)}<button type="button" onclick="secimKitapCikar(${id})" aria-label="Çıkar">×</button></span>`;
+    const adet=secimKitapAdetleri[id];
+    return `<div class="skitap-satir">
+      <span>${esc(k.ad)}</span>
+      <input type="number" min="0" inputmode="numeric" placeholder="Adet"
+        value="${adet==null?'':adet}" onchange="secimKitapAdetGuncelle(${id},this.value)">
+      <button type="button" onclick="secimKitapCikar(${id})" aria-label="Çıkar">×</button>
+    </div>`;
   }).join('');
   secimKitapOzetCiz();
+}
+function secimKitapAdetGuncelle(id, deger){
+  secimKitapAdetleri[id] = deger===''? null : Number(deger);
 }
 
 /* ---------- Depoya Bildir: bağımsız, okul kaydı gerektirmeyen bildirim formu ---------- */
@@ -2097,11 +2157,13 @@ async function secimEkle(){
   if(!secimHesapSeciliId){ alert('Listeden bir okul seç.'); secimHesapArama.focus(); return false; }
   if(!secimTarih.value){ alert('Tarih gerekli.'); secimTarih.focus(); return false; }
   if(!secimSecilenKitaplar.length){ alert('En az bir kitap seç.'); return false; }
-  const tarih=secimTarih.value, hesapId=secimHesapSeciliId;
+  const tarih=secimTarih.value, hesapId=secimHesapSeciliId, donem=secimDonem.value;
   secimSecilenKitaplar.forEach(kitapId=>{
-    secimler.push({id:yeniId(), ziyaretId:null, hesapId, kitapId, tarih, satildi:false, adet:null, not:''});
+    const adet = secimKitapAdetleri[kitapId] ?? null;
+    secimler.push({id:yeniId(), ziyaretId:null, hesapId, kitapId, tarih, donem, satildi:false, adet, not:''});
   });
   const basarili=await yaz('secimler', secimler);
+  secimKitapAdetleri={};
   kapat('secimForm'); secimCiz();
   return basarili;
 }
@@ -2119,6 +2181,7 @@ function secimCiz(){
       <div class="tags">
         <span class="tag">${esc(h?h.ad:'Silinmiş okul')}${h&&(h.ilce||h.il)?` — ${esc(h.ilce||h.il)}`:''}</span>
         ${h&&h.kademe&&h.kademe.length?`<span class="tag g">${esc(h.kademe.join(', '))}</span>`:''}
+        ${kayit.donem?`<span class="tag o">${esc(kayit.donem)}</span>`:''}
         ${h&&h.adres?`<span class="tag o">${esc(h.adres)}</span>`:''}
       </div>
       <div class="g2" style="margin-top:12px">
@@ -2218,20 +2281,24 @@ function raporCiz(){
 }
 function raporGosterimCiz(){
   const q=norm(raporAra.value.trim());
+  if(q.length<2){
+    raporGosterimListe.innerHTML = `<div class="empty"><b>Aramak için en az 2 harf yaz</b><p>Kitap ya da yazar adı yazınca, hangi okullarda ne zaman gösterildiği burada listelenir.</p></div>`;
+    return;
+  }
   const uygunHesap=raporUygunHesapIdleri();
   let kayitlar=[];
   ziyaretler.forEach(z=>{
     if(uygunHesap && !uygunHesap.has(z.hesapId)) return;
     (z.kitaplar||[]).forEach(kid=>{
       const k=KITAPLAR.find(x=>x.id===kid); if(!k) return;
-      if(q && !k._s.includes(q)) return;
+      if(!k._s.includes(q)) return;
       const h=hesaplar.find(x=>x.id===z.hesapId);
       const okulAdi = h ? `${h.ad}${h.ilce||h.il?` — ${h.ilce||h.il}`:''}` : 'Silinmiş hesap';
       kayitlar.push({kitapId:kid, kitapAdi:k.ad, okulAdi, tarih:z.tarih});
     });
   });
   if(!kayitlar.length){
-    raporGosterimListe.innerHTML = `<div class="empty"><b>Kayıt yok</b><p>Henüz gösterilen kitap yok.</p></div>`;
+    raporGosterimListe.innerHTML = `<div class="empty"><b>Eşleşen kayıt yok</b><p>Bu isimde gösterilmiş bir kitap bulunamadı.</p></div>`;
     return;
   }
   // Kitap bazında grupla — bir yazarın birden fazla kitabı olabileceği için,
