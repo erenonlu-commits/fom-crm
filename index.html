@@ -421,6 +421,7 @@ input[type="date"]:hover::-webkit-calendar-picker-indicator{opacity:1}
     <button onclick="git('hesaplar',this)" aria-current="page">Hesaplar</button>
     <button onclick="git('ziyaretler',this)">Ziyaretler</button>
     <button onclick="git('secilenler',this)">Seçilen</button>
+    <button onclick="git('depo',this)">Depoya Bildir</button>
     <button onclick="git('katalog',this)">Katalog</button>
     <button onclick="git('raporlar',this)">Raporlar</button>
     <button onclick="git('ayarlar',this)">Ayarlar</button>
@@ -689,6 +690,41 @@ input[type="date"]:hover::-webkit-calendar-picker-indicator{opacity:1}
       <div id="secilenListe"></div>
     </section>
 
+    <!-- DEPOYA BİLDİR -->
+    <section class="view" id="v-depo">
+      <h2>Depoya Bildir</h2>
+      <p class="lede">Hangi okula hangi kitaplardan hazırlanmasını istiyorsan buradan bildir — okul kaydı gerekmez.</p>
+
+      <div class="panel panel-form">
+        <h3>Yeni bildirim</h3>
+        <div class="f">
+          <label for="depoOkulAdi">Okul <span class="req">*</span></label>
+          <input id="depoOkulAdi" type="text" placeholder="Okul adını yaz…" autocomplete="off">
+        </div>
+        <div class="f">
+          <label>Kitaplar <span class="req">*</span></label>
+          <button type="button" class="acilir" id="depoKitapAcButon" onclick="depoKitapPanelAc()">
+            <span id="depoKitapOzet">Kitap seç</span><span class="ok">▾</span>
+          </button>
+          <div class="acilir-panel" id="depoKitapPanel" style="display:none">
+            <input id="depoKitapAra" placeholder="Ara: ad, yazar, barkod (en az 2 harf)" autocomplete="off" oninput="depoKitapListesiCiz()">
+            <div class="tikli" id="depoTikliListe"></div>
+            <div class="panel-alt">
+              <span id="depoTikliSayi">0 seçili</span>
+              <button type="button" class="btn sm" onclick="depoKitapPanelKapat()">Tamam</button>
+            </div>
+          </div>
+          <div class="picked" id="depoKitapSecili"></div>
+        </div>
+        <div class="acts">
+          <button class="btn" onclick="butonlaKaydet(this,depoEkle)">Okeyle, depoya bildir</button>
+          <button class="btn ghost" onclick="depoFormTemizle()">Temizle</button>
+        </div>
+      </div>
+
+      <div id="depoListe"></div>
+    </section>
+
     <!-- RAPORLAR -->
     <section class="view" id="v-raporlar">
       <h2>Raporlar</h2>
@@ -818,6 +854,8 @@ function ziyaretToDB(z){ return {id:z.id, hesap_id:z.hesapId, tarih:z.tarih, kad
 
 function secimFromDB(r){ return {id:r.id, ziyaretId:r.ziyaret_id, hesapId:r.hesap_id, kitapId:r.kitap_id, tarih:r.tarih, satildi:!!r.satildi, adet:(r.adet==null?null:r.adet), not:r.aciklama||''}; }
 function secimToDB(s){ return {id:s.id, ziyaret_id:s.ziyaretId??null, hesap_id:s.hesapId, kitap_id:s.kitapId, tarih:s.tarih, satildi:!!s.satildi, adet:(s.adet==null?null:s.adet), aciklama:s.not||''}; }
+function depoBildirimiFromDB(r){ return {id:r.id, okulAdi:r.okul_adi, kitapId:r.kitap_id, tarih:r.tarih, gonderildi:!!r.gonderildi, olusturan:r.olusturan||''}; }
+function depoBildirimiToDB(d){ return {id:d.id, okul_adi:d.okulAdi, kitap_id:d.kitapId, tarih:d.tarih, gonderildi:!!d.gonderildi, olusturan:d.olusturan||''}; }
 
 /* bir dizinin TAMAMINI Supabase'le eşitler: eklenenleri/değişenleri yazar, çıkarılanları siler */
 async function tabloSenkronize(tablo, dizi, toDB, idAlani='id'){
@@ -883,6 +921,7 @@ async function yaz(k,v){
     case 'hesaplar': return await tabloSenkronize('hesaplar', v, hesapToDB);
     case 'ziyaretler': return await tabloSenkronize('ziyaretler', v, ziyaretToDB);
     case 'secimler': return await tabloSenkronize('secimler', v, secimToDB);
+    case 'depoBildirimleri': return await tabloSenkronize('depo_bildirimleri', v, depoBildirimiToDB);
     case 'kullanicilar': return await stringDiziSenkronize('kullanicilar', v);
     case 'durumlar': return await stringDiziSenkronize('durumlar', v);
     case 'hesapTurleri': return await stringDiziSenkronize('hesap_turleri', v);
@@ -906,7 +945,8 @@ async function katalogKaydet(){
 let ben=null, filtre={q:'',sev:null,tur:''}, ilSecili=null, secilenKitaplar=[],
     duzenlenenHesap=null, duzenlenenKitap=null, duzenlenenZiyaret=null,
     kisiHesapId=null, duzenlenenKisi=null, zHesapSeciliId=null, zGorusmeTuruSecili='Yüz yüze',
-    secimHesapSeciliId=null, secimSecilenKitaplar=[], secimFiltreHesapId=null;
+    secimHesapSeciliId=null, secimSecilenKitaplar=[], secimFiltreHesapId=null,
+    depoSecilenKitaplar=[], depoBildirimleri=[];
 const KADEME_SEV={'Anaokulu':[0],'İlkokul':[1,2,3,4],'Ortaokul':[5,6,7,8],'Lise':[9]};
 
 /* Çoklu cihazdan aynı anda kayıt eklenirse ID çakışmasını önleyen üretici.
@@ -956,6 +996,18 @@ async function uygulamayiBaslat(){
     if(htRes.data && htRes.data.length) hesapTurleri = htRes.data.map(r=>r.ad);
 
     indeksle();
+
+    // depo_bildirimleri tablosu henüz oluşturulmamış olabilir (SQL çalıştırılmadan) —
+    // bu durumda diğer her şeyin açılmasını engellememesi için ayrı, hataya toleranslı çekiyoruz.
+    try{
+      const dbRes = await db.from('depo_bildirimleri').select('*');
+      if(dbRes.error) throw dbRes.error;
+      depoBildirimleri = (dbRes.data||[]).map(depoBildirimiFromDB);
+    }catch(e){
+      console.warn('depo_bildirimleri tablosu henüz hazır değil (SQL çalıştırılmamış olabilir):', e);
+      depoBildirimleri = [];
+    }
+
     yukleniyor.style.display='none';
     gate.style.display='';
     girisCiz();
@@ -1039,6 +1091,17 @@ async function veriTazele(hangiler){
       if(error) throw error;
       secimler = data.map(secimFromDB);
     },
+    depoBildirimleri: async ()=>{
+      // depo_bildirimleri tablosu SQL çalıştırılmadıysa henüz yok olabilir —
+      // bu durumda sekme değişimini engellememesi için sessizce boş bırakıyoruz.
+      try{
+        const {data,error} = await db.from('depo_bildirimleri').select('*');
+        if(error) throw error;
+        depoBildirimleri = data.map(depoBildirimiFromDB);
+      }catch(e){
+        console.warn('depo_bildirimleri tablosu henüz hazır değil:', e);
+      }
+    },
     kullanicilar: async ()=>{
       const {data,error} = await db.from('kullanicilar').select('*').order('sira');
       if(error) throw error;
@@ -1078,6 +1141,7 @@ async function git(v,el){
     hesaplar: ['hesaplar','ziyaretler','secimler','kitaplar'], // Dashboard 4 tablodan sayı gösteriyor, hepsi güncel olmalı
     ziyaretler: ['ziyaretler','hesaplar'],
     secilenler: ['secimler','hesaplar','kitaplar'],
+    depo: ['depoBildirimleri','kitaplar'],
     katalog: ['kitaplar'],
     raporlar: ['ziyaretler','secimler','hesaplar','kitaplar'],
     ayarlar: ['kullanicilar','kullaniciRolleri','durumlar','hesapTurleri'],
@@ -1087,6 +1151,7 @@ async function git(v,el){
   if(v==='hesaplar') hesapCiz();
   if(v==='ziyaretler') ziyaretCiz();
   if(v==='secilenler') secimCiz();
+  if(v==='depo') depoCiz();
   if(v==='raporlar') raporCiz();
   if(v==='ayarlar') ayarCiz();
   window.scrollTo(0,0);
@@ -1931,6 +1996,93 @@ function secimKitapSeciliCiz(){
     return `<span class="chip">${esc(k.ad)}<button type="button" onclick="secimKitapCikar(${id})" aria-label="Çıkar">×</button></span>`;
   }).join('');
   secimKitapOzetCiz();
+}
+
+/* ---------- Depoya Bildir: bağımsız, okul kaydı gerektirmeyen bildirim formu ---------- */
+function depoKitapPanelAc(){
+  depoKitapPanel.style.display='block'; depoKitapAcButon.style.display='none';
+  depoKitapAra.value=''; depoKitapListesiCiz(); depoKitapAra.focus();
+}
+function depoKitapPanelKapat(){
+  depoKitapPanel.style.display='none'; depoKitapAcButon.style.display='flex';
+  depoKitapOzetCiz();
+}
+function depoKitapOzetCiz(){
+  depoKitapOzet.textContent = depoSecilenKitaplar.length
+    ? `${depoSecilenKitaplar.length} kitap seçili — değiştir`
+    : 'Kitap seç';
+}
+function depoKitapListesiCiz(){
+  const q=norm(depoKitapAra.value.trim());
+  if(q.length<2){
+    depoTikliListe.innerHTML=`<div class="yok">Aramak için en az 2 harf yaz</div>`;
+    depoTikliSayiCiz(); return;
+  }
+  const r=KITAPLAR.filter(k=>k._s.includes(q)).slice(0,50);
+  depoTikliListe.innerHTML = r.length ? r.map(k=>`<label>
+      <input type="checkbox" value="${k.id}" ${depoSecilenKitaplar.includes(k.id)?'checked':''} onchange="depoKitapTikle(${k.id},this.checked)">
+      <span>${esc(k.ad)}<span class="s">${esc(k.yazar)} · ${esc(k.turu)} · ${esc(k.sinif)}</span></span>
+    </label>`).join('') : `<div class="yok">Eşleşen kitap yok</div>`;
+  depoTikliSayiCiz();
+}
+function depoTikliSayiCiz(){ depoTikliSayi.textContent=`${depoSecilenKitaplar.length} seçili`; }
+function depoKitapTikle(id,acik){
+  if(acik){ if(!depoSecilenKitaplar.includes(id)) depoSecilenKitaplar.push(id); }
+  else depoSecilenKitaplar=depoSecilenKitaplar.filter(x=>x!==id);
+  depoTikliSayiCiz(); depoKitapSeciliCiz();
+}
+function depoKitapCikar(id){
+  depoSecilenKitaplar=depoSecilenKitaplar.filter(x=>x!==id);
+  const cb=depoTikliListe.querySelector(`input[value="${id}"]`);
+  if(cb) cb.checked=false;
+  depoTikliSayiCiz(); depoKitapSeciliCiz();
+}
+function depoKitapSeciliCiz(){
+  depoKitapSecili.innerHTML=depoSecilenKitaplar.map(id=>{
+    const k=KITAPLAR.find(x=>x.id===id); if(!k)return '';
+    return `<span class="chip">${esc(k.ad)}<button type="button" onclick="depoKitapCikar(${id})" aria-label="Çıkar">×</button></span>`;
+  }).join('');
+  depoKitapOzetCiz();
+}
+function depoFormTemizle(){
+  depoOkulAdi.value='';
+  depoSecilenKitaplar=[];
+  depoKitapPanelKapat(); depoKitapSeciliCiz();
+}
+async function depoEkle(){
+  const okulAdi=depoOkulAdi.value.trim();
+  if(!okulAdi){ alert('Okul adı gerekli.'); depoOkulAdi.focus(); return false; }
+  if(!depoSecilenKitaplar.length){ alert('En az bir kitap seç.'); return false; }
+  const tarih=new Date().toISOString().slice(0,10);
+  depoSecilenKitaplar.forEach(kitapId=>{
+    depoBildirimleri.push({id:yeniId(), okulAdi, kitapId, tarih, gonderildi:false, olusturan:ben});
+  });
+  const basarili=await yaz('depoBildirimleri', depoBildirimleri);
+  depoFormTemizle(); depoCiz();
+  return basarili;
+}
+async function depoBildirimSil(id){
+  if(!confirm('Bu bildirim kaydı silinecek. Onaylıyor musun?'))return;
+  depoBildirimleri=depoBildirimleri.filter(d=>d.id!==id);
+  await yaz('depoBildirimleri', depoBildirimleri);
+  depoCiz();
+}
+function depoCiz(){
+  const d=[...depoBildirimleri].sort((a,b)=>b.tarih.localeCompare(a.tarih));
+  depoListe.innerHTML = d.length ? d.map(kayit=>{
+    const k=KITAPLAR.find(x=>x.id===kayit.kitapId);
+    const tarihStr=tarihFormatla(kayit.tarih);
+    return `<article class="rec">
+      <div class="rec-h"><h4>${esc(kayit.okulAdi)}</h4><span class="barcode">${esc(tarihStr)}</span></div>
+      <div class="tags">
+        <span class="tag">${esc(k?k.ad:'Silinmiş kitap')}</span>
+        <span class="tag ${kayit.gonderildi?'g':''}">${kayit.gonderildi?'Depoya bildirildi':'Bildirilmeyi bekliyor'}</span>
+      </div>
+      <div class="acts" style="margin-top:11px">
+        <button class="btn link" onclick="depoBildirimSil(${kayit.id})">Sil</button>
+      </div>
+    </article>`;
+  }).join('') : `<div class="empty"><b>Henüz bildirim yok</b><p>Depoya hazırlanması için bir okul ve kitap seç, "Okeyle" ile gönder.</p></div>`;
 }
 
 async function secimEkle(){
