@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230F6B5C'/%3E%3Ctext x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-family='system-ui' font-weight='800' font-size='18'%3EF%3C/text%3E%3C/svg%3E">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 :root{
   --paper:#FBFAF7; --surface:#FFFFFF; --ink:#16233D; --ink-soft:#5A6478;
@@ -764,15 +765,21 @@ input[type="date"]:hover::-webkit-calendar-picker-indicator{opacity:1}
       </div>
 
       <div class="panel">
-        <h3>Gösterim kaydı</h3>
-        <p class="lede" style="margin:-8px 0 12px">Hangi kitap, hangi okulda, ne zaman gösterildi.</p>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+          <h3 style="margin:0">Gösterim kaydı</h3>
+          <button class="btn ghost sm" onclick="gosterimExcelIndir()">Excel'e aktar</button>
+        </div>
+        <p class="lede" style="margin:8px 0 12px">Hangi kitap, hangi okulda, ne zaman gösterildi.</p>
         <input id="raporAra" type="text" placeholder="Kitap veya yazar adına göre ara…" autocomplete="off" oninput="raporGosterimCiz()">
         <div id="raporGosterimListe" style="margin-top:12px"></div>
       </div>
 
       <div class="panel">
-        <h3>Kitaba göre seçilenler</h3>
-        <p class="lede" style="margin:-8px 0 12px">Bir kitap yaz, hangi okullar seçmiş gör.</p>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+          <h3 style="margin:0">Kitaba göre seçilenler</h3>
+          <button class="btn ghost sm" onclick="secilenExcelIndir()">Excel'e aktar</button>
+        </div>
+        <p class="lede" style="margin:8px 0 12px">Bir kitap yaz, hangi okullar seçmiş gör.</p>
         <input id="raporKitapAra" type="text" placeholder="Kitap adı yaz (en az 2 harf)…" autocomplete="off" oninput="raporKitabaGoreAra()">
         <div id="raporKitabaGoreSonuc" style="margin-top:12px"></div>
       </div>
@@ -2278,6 +2285,61 @@ function raporCiz(){
     iller.map(i=>`<button aria-pressed="${raporIlSecili===i?'true':'false'}" onclick="raporIlSec('${esc(i)}',this)">${esc(i)}</button>`).join('');
   raporGosterimCiz();
   raporKitabaGoreAra();
+}
+/* "Gösterim kaydı" panelindeki arama/filtreye bakmadan, TÜM ziyaretlerdeki
+   gösterilen kitapları (hangi kitap nereye tanıtılmış) Excel olarak indirir. */
+function gosterimExcelIndir(){
+  if(typeof XLSX==='undefined'){ alert('Excel kütüphanesi yüklenemedi. İnternet bağlantını kontrol edip tekrar dene.'); return; }
+  const satirlar=[];
+  ziyaretler.forEach(z=>{
+    const h=hesaplar.find(x=>x.id===z.hesapId);
+    (z.kitaplar||[]).forEach(kid=>{
+      const k=KITAPLAR.find(x=>x.id===kid);
+      satirlar.push({
+        'Kitap': k?k.ad:'Silinmiş kitap',
+        'Yazar': k?k.yazar:'',
+        'Okul': h?h.ad:'Silinmiş hesap',
+        'İl': h?h.il||'':'',
+        'İlçe': h?h.ilce||'':'',
+        'Tarih': z.tarih,
+        'Görüşülen Kişi': z.kisi||'',
+        'Ekleyen': z.ekleyen||''
+      });
+    });
+  });
+  if(!satirlar.length){ alert('Henüz gösterilen kitap yok.'); return; }
+  const ws=XLSX.utils.json_to_sheet(satirlar);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Gösterim Kaydı');
+  const tarih=new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `fom-gosterim-kaydi-${tarih}.xlsx`);
+}
+/* "Seçilen" sekmesindeki TÜM kayıtları (hangi kitap nereye seçilmiş,
+   satılıp satılmadığına bakmaksızın) Excel olarak indirir. */
+function secilenExcelIndir(){
+  if(typeof XLSX==='undefined'){ alert('Excel kütüphanesi yüklenemedi. İnternet bağlantını kontrol edip tekrar dene.'); return; }
+  if(!secimler.length){ alert('Henüz seçilen kayıt yok.'); return; }
+  const satirlar = secimler.map(s=>{
+    const k=KITAPLAR.find(x=>x.id===s.kitapId);
+    const h=hesaplar.find(x=>x.id===s.hesapId);
+    return {
+      'Kitap': k?k.ad:'Silinmiş kitap',
+      'Yazar': k?k.yazar:'',
+      'Okul': h?h.ad:'Silinmiş hesap',
+      'İl': h?h.il||'':'',
+      'İlçe': h?h.ilce||'':'',
+      'Adet': s.adet??'',
+      'Dönem': s.donem||'',
+      'Tarih': s.tarih,
+      'Satıldı': s.satildi?'Evet':'Hayır',
+      'Not': s.not||''
+    };
+  });
+  const ws=XLSX.utils.json_to_sheet(satirlar);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Seçilen Kayıtlar');
+  const tarih=new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `fom-secilen-kayitlar-${tarih}.xlsx`);
 }
 function raporGosterimCiz(){
   const q=norm(raporAra.value.trim());
