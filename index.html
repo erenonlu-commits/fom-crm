@@ -263,6 +263,14 @@ select.tur{
 
 /* ---------- kayıt listesi ---------- */
 .rec{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:15px;margin-bottom:9px;box-shadow:0 1px 2px rgba(22,35,61,.04)}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+.tbl{width:100%;border-collapse:collapse;font-size:13.5px;white-space:nowrap}
+.tbl th{background:var(--line-soft);color:var(--ink-soft);font-weight:700;font-size:11.5px;
+  text-transform:uppercase;letter-spacing:.04em;text-align:left;padding:10px 12px;position:sticky;top:0}
+.tbl td{padding:10px 12px;border-top:1px solid var(--line-soft)}
+.tbl tbody tr:hover{background:var(--line-soft)}
+.tbl td.tbl-acts{white-space:nowrap}
+.tbl td.tbl-acts button{margin-right:6px}
 .rec-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
 .rec h4{font-family:var(--display);font-size:17px;font-weight:700;letter-spacing:-.012em}
 .tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
@@ -394,8 +402,8 @@ select.tur{
 .yukleniyor-nokta span{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:dotBounce 1.2s ease-in-out infinite}
 .yukleniyor-nokta span:nth-child(2){animation-delay:.15s}
 .yukleniyor-nokta span:nth-child(3){animation-delay:.3s}
-input[type="date"]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.6;transition:opacity .15s}
-input[type="date"]:hover::-webkit-calendar-picker-indicator{opacity:1}
+input[type="date"]{cursor:pointer}
+input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
 </style>
 </head>
 <body>
@@ -430,6 +438,7 @@ input[type="date"]:hover::-webkit-calendar-picker-indicator{opacity:1}
     <button onclick="git('ziyaretler',this)">Ziyaretler</button>
     <button onclick="git('secilenler',this)">Seçilen</button>
     <button onclick="git('depo',this)">Depoya Bildir</button>
+    <button onclick="git('yazaretkinlik',this)">Yazar Etkinlikleri</button>
     <button onclick="git('katalog',this)">Katalog</button>
     <button onclick="git('raporlar',this)">Raporlar</button>
     <button onclick="git('ayarlar',this)">Ayarlar</button>
@@ -746,12 +755,58 @@ input[type="date"]:hover::-webkit-calendar-picker-indicator{opacity:1}
           <div class="picked" id="depoKitapSecili"></div>
         </div>
         <div class="acts">
-          <button class="btn" onclick="butonlaKaydet(this,depoEkle)">Okeyle, depoya bildir</button>
+          <button class="btn" onclick="butonlaKaydet(this,depoEkle)">Depoya bildir</button>
           <button class="btn ghost" onclick="depoFormTemizle()">Temizle</button>
         </div>
       </div>
 
       <div id="depoListe"></div>
+    </section>
+
+    <!-- YAZAR ETKİNLİKLERİ -->
+    <section class="view" id="v-yazaretkinlik">
+      <h2>Yazar Etkinlikleri</h2>
+      <p class="lede">Yazarların okullarla yaptığı söyleşi, imza günü, toplantı gibi etkinliklerin takvimi.</p>
+
+      <div class="panel panel-form" id="yeForm">
+        <h3 id="yeFormBaslik">Yeni etkinlik</h3>
+        <div class="g2">
+          <div class="f" style="margin:0"><label for="yeEtkinlikTuru">Etkinlik türü</label>
+            <select id="yeEtkinlikTuru">
+              <option value="Yüz yüze">Yüz yüze</option>
+              <option value="Online">Online</option>
+              <option value="Fuar">Fuar</option>
+              <option value="Toplantı">Toplantı</option>
+              <option value="Diğer">Diğer</option>
+            </select>
+          </div>
+          <div class="f" style="margin:0"><label for="yeEtkinlikSekli">Şekli</label>
+            <select id="yeEtkinlikSekli">
+              <option value="">—</option>
+              <option value="Yüz yüze">Yüz yüze</option>
+              <option value="Online">Online</option>
+            </select>
+          </div>
+        </div>
+        <div class="f"><label for="yeEser">Eser <span style="font-weight:400;color:var(--ink-soft)">(opsiyonel)</span></label>
+          <input id="yeEser" placeholder="Kitap adı ya da etkinlik açıklaması"></div>
+        <div class="f"><label for="yeYazar">Yazar</label><input id="yeYazar" placeholder="Yazar adı"></div>
+        <div class="g2">
+          <div class="f" style="margin:0"><label for="yeSinif">Sınıf <span style="font-weight:400;color:var(--ink-soft)">(opsiyonel)</span></label><input id="yeSinif" placeholder="Örn. 7. Sınıf"></div>
+          <div class="f" style="margin:0"><label for="yeTarih">Tarih</label><input type="date" id="yeTarih"></div>
+        </div>
+        <div class="g2">
+          <div class="f" style="margin:0"><label for="yeSaat">Saat <span style="font-weight:400;color:var(--ink-soft)">(opsiyonel)</span></label><input id="yeSaat" placeholder="Örn. 14.00 ya da 13.15/13.55"></div>
+          <div class="f" style="margin:0"><label for="yeSehir">Şehir <span style="font-weight:400;color:var(--ink-soft)">(opsiyonel)</span></label><input id="yeSehir" placeholder="Örn. İstanbul"></div>
+        </div>
+        <div class="f"><label for="yeKurum">Kurum <span class="req">*</span></label><input id="yeKurum" placeholder="Okul veya kurum adı"></div>
+        <div class="acts">
+          <button class="btn" onclick="butonlaKaydet(this,yazarEtkinlikKaydet)">Kaydet</button>
+          <button class="btn ghost" onclick="yazarEtkinlikFormTemizle()">Temizle</button>
+        </div>
+      </div>
+
+      <div id="yazarEtkinlikListe"></div>
     </section>
 
     <!-- RAPORLAR -->
@@ -891,6 +946,8 @@ function secimFromDB(r){ return {id:r.id, ziyaretId:r.ziyaret_id, hesapId:r.hesa
 function secimToDB(s){ return {id:s.id, ziyaret_id:s.ziyaretId??null, hesap_id:s.hesapId, kitap_id:s.kitapId, tarih:s.tarih, donem:s.donem||null, satildi:!!s.satildi, adet:(s.adet==null?null:s.adet), aciklama:s.not||''}; }
 function depoBildirimiFromDB(r){ return {id:r.id, okulAdi:r.okul_adi, kitapId:r.kitap_id, tarih:r.tarih, gonderildi:!!r.gonderildi, olusturan:r.olusturan||''}; }
 function depoBildirimiToDB(d){ return {id:d.id, okul_adi:d.okulAdi, kitap_id:d.kitapId, tarih:d.tarih, gonderildi:!!d.gonderildi, olusturan:d.olusturan||''}; }
+function yazarEtkinligiFromDB(r){ return {id:r.id, etkinlikTuru:r.etkinlik_turu||'', yazar:r.yazar||'', eser:r.eser||'', sinif:r.sinif||'', etkinlikSekli:r.etkinlik_sekli||'', tarih:r.tarih, saat:r.saat||'', kurum:r.kurum||'', sehir:r.sehir||'', olusturan:r.olusturan||''}; }
+function yazarEtkinligiToDB(e){ return {id:e.id, etkinlik_turu:e.etkinlikTuru||null, yazar:e.yazar||null, eser:e.eser||null, sinif:e.sinif||null, etkinlik_sekli:e.etkinlikSekli||null, tarih:e.tarih||null, saat:e.saat||null, kurum:e.kurum||null, sehir:e.sehir||null, olusturan:e.olusturan||null}; }
 
 /* bir dizinin TAMAMINI Supabase'le eşitler: eklenenleri/değişenleri yazar, çıkarılanları siler */
 async function tabloSenkronize(tablo, dizi, toDB, idAlani='id'){
@@ -957,6 +1014,7 @@ async function yaz(k,v){
     case 'ziyaretler': return await tabloSenkronize('ziyaretler', v, ziyaretToDB);
     case 'secimler': return await tabloSenkronize('secimler', v, secimToDB);
     case 'depoBildirimleri': return await tabloSenkronize('depo_bildirimleri', v, depoBildirimiToDB);
+    case 'yazarEtkinlikleri': return await tabloSenkronize('yazar_etkinlikleri', v, yazarEtkinligiToDB);
     case 'kullanicilar': return await stringDiziSenkronize('kullanicilar', v);
     case 'durumlar': return await stringDiziSenkronize('durumlar', v);
     case 'hesapTurleri': return await stringDiziSenkronize('hesap_turleri', v);
@@ -981,7 +1039,8 @@ let ben=null, filtre={q:'',sev:null,tur:''}, ilSecili=null, secilenKitaplar=[],
     duzenlenenHesap=null, duzenlenenKitap=null, duzenlenenZiyaret=null,
     kisiHesapId=null, duzenlenenKisi=null, zHesapSeciliId=null, zGorusmeTuruSecili='Yüz yüze',
     secimHesapSeciliId=null, secimSecilenKitaplar=[], secimFiltreHesapId=null, secimKitapAdetleri={},
-    depoSecilenKitaplar=[], depoBildirimleri=[], acikHesaplar=new Set(), acikZiyaretler=new Set();
+    depoSecilenKitaplar=[], depoBildirimleri=[], acikHesaplar=new Set(), acikZiyaretler=new Set(),
+    yazarEtkinlikleri=[], duzenlenenYazarEtkinlik=null;
 const KADEME_SEV={'Anaokulu':[0],'İlkokul':[1,2,3,4],'Ortaokul':[5,6,7,8],'Lise':[9]};
 
 /* Çoklu cihazdan aynı anda kayıt eklenirse ID çakışmasını önleyen üretici.
@@ -1041,6 +1100,14 @@ async function uygulamayiBaslat(){
     }catch(e){
       console.warn('depo_bildirimleri tablosu henüz hazır değil (SQL çalıştırılmamış olabilir):', e);
       depoBildirimleri = [];
+    }
+    try{
+      const yeRes = await db.from('yazar_etkinlikleri').select('*');
+      if(yeRes.error) throw yeRes.error;
+      yazarEtkinlikleri = (yeRes.data||[]).map(yazarEtkinligiFromDB);
+    }catch(e){
+      console.warn('yazar_etkinlikleri tablosu henüz hazır değil (SQL çalıştırılmamış olabilir):', e);
+      yazarEtkinlikleri = [];
     }
 
     yukleniyor.style.display='none';
@@ -1137,6 +1204,15 @@ async function veriTazele(hangiler){
         console.warn('depo_bildirimleri tablosu henüz hazır değil:', e);
       }
     },
+    yazarEtkinlikleri: async ()=>{
+      try{
+        const {data,error} = await db.from('yazar_etkinlikleri').select('*');
+        if(error) throw error;
+        yazarEtkinlikleri = data.map(yazarEtkinligiFromDB);
+      }catch(e){
+        console.warn('yazar_etkinlikleri tablosu henüz hazır değil:', e);
+      }
+    },
     kullanicilar: async ()=>{
       const {data,error} = await db.from('kullanicilar').select('*').order('sira');
       if(error) throw error;
@@ -1177,6 +1253,7 @@ async function git(v,el){
     ziyaretler: ['ziyaretler','hesaplar'],
     secilenler: ['secimler','hesaplar','kitaplar'],
     depo: ['depoBildirimleri','kitaplar'],
+    yazaretkinlik: ['yazarEtkinlikleri'],
     katalog: ['kitaplar'],
     raporlar: ['ziyaretler','secimler','hesaplar','kitaplar'],
     ayarlar: ['kullanicilar','kullaniciRolleri','durumlar','hesapTurleri'],
@@ -1187,6 +1264,7 @@ async function git(v,el){
   if(v==='ziyaretler') ziyaretCiz();
   if(v==='secilenler') secimCiz();
   if(v==='depo') depoCiz();
+  if(v==='yazaretkinlik') yazarEtkinlikCiz();
   if(v==='raporlar') raporCiz();
   if(v==='ayarlar') ayarCiz();
   window.scrollTo(0,0);
@@ -2160,6 +2238,99 @@ function depoCiz(){
   }).join('') : `<div class="empty"><b>Henüz bildirim yok</b><p>Depoya hazırlanması için bir okul ve kitap seç, "Okeyle" ile gönder.</p></div>`;
 }
 
+/* ---------- Yazar Etkinlikleri ---------- */
+async function yazarEtkinlikKaydet(){
+  const kurum=yeKurum.value.trim();
+  if(!kurum){ alert('Kurum adı gerekli.'); yeKurum.focus(); return false; }
+  const duzenlemeMi=duzenlenenYazarEtkinlik!=null;
+  const veri={
+    etkinlikTuru: yeEtkinlikTuru.value,
+    yazar: yeYazar.value.trim(),
+    eser: yeEser.value.trim(),
+    sinif: yeSinif.value.trim(),
+    etkinlikSekli: yeEtkinlikSekli.value,
+    tarih: yeTarih.value||null,
+    saat: yeSaat.value.trim(),
+    kurum,
+    sehir: yeSehir.value.trim(),
+    olusturan: ben
+  };
+  if(duzenlemeMi){
+    yazarEtkinlikleri=yazarEtkinlikleri.map(x=>x.id===duzenlenenYazarEtkinlik?{...x,...veri}:x);
+  }else{
+    yazarEtkinlikleri.push({id:yeniId(),...veri});
+  }
+  const basarili=await yaz('yazarEtkinlikleri', yazarEtkinlikleri);
+  yazarEtkinlikFormTemizle();
+  yazarEtkinlikCiz();
+  if(!basarili) return false;
+  return duzenlemeMi ? 'guncellendi' : true;
+}
+function yazarEtkinlikFormTemizle(){
+  yeEtkinlikTuru.value='Yüz yüze'; yeEtkinlikSekli.value='';
+  yeEser.value=''; yeYazar.value=''; yeSinif.value=''; yeTarih.value=''; yeSaat.value='';
+  yeKurum.value=''; yeSehir.value='';
+  duzenlenenYazarEtkinlik=null;
+  yeFormBaslik.textContent='Yeni etkinlik';
+}
+function yazarEtkinlikDuzenle(id){
+  const e=yazarEtkinlikleri.find(x=>x.id===id); if(!e)return;
+  duzenlenenYazarEtkinlik=id;
+  yeFormBaslik.textContent='Etkinliği düzenle';
+  yeEtkinlikTuru.value=e.etkinlikTuru||'Yüz yüze';
+  yeEtkinlikSekli.value=e.etkinlikSekli||'';
+  yeEser.value=e.eser||'';
+  yeYazar.value=e.yazar||'';
+  yeSinif.value=e.sinif||'';
+  yeTarih.value=e.tarih||'';
+  yeSaat.value=e.saat||'';
+  yeKurum.value=e.kurum||'';
+  yeSehir.value=e.sehir||'';
+  yeForm.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+async function yazarEtkinlikSil(id){
+  if(!confirm('Bu etkinlik kaydı silinecek. Onaylıyor musun?'))return;
+  yazarEtkinlikleri=yazarEtkinlikleri.filter(x=>x.id!==id);
+  await yaz('yazarEtkinlikleri', yazarEtkinlikleri);
+  yazarEtkinlikCiz();
+}
+function yazarEtkinlikCiz(){
+  const s=[...yazarEtkinlikleri].sort((a,b)=>(b.tarih||'').localeCompare(a.tarih||''));
+  if(!s.length){
+    yazarEtkinlikListe.innerHTML = `<div class="empty"><b>Henüz etkinlik yok</b><p>Bir yazar-okul etkinliği planlandığında buraya ekle.</p></div>`;
+    return;
+  }
+  const satirlar = s.map(e=>{
+    // tabloda "3 gün önce" gibi göreceli ifadeler yerine düz tarih — karşılaştırma/tarama için daha net
+    const tarihStr = e.tarih ? (()=>{
+      const [y,m,g]=e.tarih.split('-');
+      return `${g}.${m}.${y}`;
+    })() : '';
+    return `<tr>
+      <td>${esc(tarihStr)}</td>
+      <td>${esc(e.etkinlikTuru||'')}</td>
+      <td>${esc(e.etkinlikSekli||'')}</td>
+      <td>${esc(e.yazar||'')}</td>
+      <td>${esc(e.eser||'')}</td>
+      <td>${esc(e.sinif||'')}</td>
+      <td>${esc(e.saat||'')}</td>
+      <td>${esc(e.kurum||'')}</td>
+      <td>${esc(e.sehir||'')}</td>
+      <td class="tbl-acts">
+        <button class="btn ghost sm" onclick="yazarEtkinlikDuzenle(${e.id})">Düzenle</button>
+        <button class="btn link" onclick="yazarEtkinlikSil(${e.id})">Sil</button>
+      </td>
+    </tr>`;
+  }).join('');
+  yazarEtkinlikListe.innerHTML = `<div class="tbl-wrap"><table class="tbl">
+    <thead><tr>
+      <th>Tarih</th><th>Etkinlik türü</th><th>Şekli</th><th>Yazar</th><th>Eser</th>
+      <th>Sınıf</th><th>Saat</th><th>Kurum</th><th>Şehir</th><th></th>
+    </tr></thead>
+    <tbody>${satirlar}</tbody>
+  </table></div>`;
+}
+
 async function secimEkle(){
   if(!secimHesapSeciliId){ alert('Listeden bir okul seç.'); secimHesapArama.focus(); return false; }
   if(!secimTarih.value){ alert('Tarih gerekli.'); secimTarih.focus(); return false; }
@@ -2621,6 +2792,17 @@ function temaDegistir(t){
     b.setAttribute('aria-pressed', b.dataset.tema===t ? 'true' : 'false');
   });
 }
+
+/* Tarih alanlarına (hem statik hem sonradan JS ile oluşturulanlara) tek bir yerden
+   destek: rakamların üzerine tıklayınca da takvim açılsın, sağdaki ikona
+   tıklama zorunluluğu kalmasın. showPicker() desteklenmeyen bir tarayıcıda
+   sessizce hiçbir şey yapmaz, arama/manuel giriş yine çalışmaya devam eder. */
+document.addEventListener('click', e=>{
+  const el=e.target.closest('input[type="date"]');
+  if(el && typeof el.showPicker==='function'){
+    try{ el.showPicker(); }catch(err){}
+  }
+});
 
 /* ---------- açılış ---------- */
 temaDegistir(localStorage.getItem('fom_tema') || ''); // sayfa yüklenir yüklenmez, event beklemeden uygula
