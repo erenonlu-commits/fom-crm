@@ -404,9 +404,10 @@ select.tur{
 .yukleniyor-nokta span:nth-child(3){animation-delay:.3s}
 input[type="date"]{cursor:pointer}
 input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
-/* Ziyaretlerdeki "Okula göre" filtre butonları — özellik/kod bilinçli olarak
-   korunuyor (ileride geri açılabilsin diye), sadece ekranda görünmesin istendi. */
-#ziyaretOkulFiltreWrap{display:none!important}
+/* Ziyaretlerdeki "Okula göre" satırı görünür kalır ("Hepsi" dahil),
+   ama sadece okul isimli butonlar (Hepsi'den sonraki her buton) gizlenir —
+   filtreleme kodu/mantığı bilinçli olarak korunuyor, sadece o kısım görünmüyor. */
+#ziyaretOkulFiltre button:not(:first-child){display:none}
 </style>
 </head>
 <body>
@@ -776,10 +777,8 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
         <div class="g2">
           <div class="f" style="margin:0"><label for="yeEtkinlikTuru">Etkinlik türü</label>
             <select id="yeEtkinlikTuru">
-              <option value="Yüz yüze">Yüz yüze</option>
-              <option value="Online">Online</option>
               <option value="Fuar">Fuar</option>
-              <option value="Toplantı">Toplantı</option>
+              <option value="Okul">Okul</option>
               <option value="Diğer">Diğer</option>
             </select>
           </div>
@@ -793,7 +792,16 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
         </div>
         <div class="f"><label for="yeEser">Eser <span style="font-weight:400;color:var(--ink-soft)">(opsiyonel)</span></label>
           <input id="yeEser" placeholder="Kitap adı ya da etkinlik açıklaması"></div>
-        <div class="f"><label for="yeYazar">Yazar</label><input id="yeYazar" placeholder="Yazar adı"></div>
+        <div class="f">
+          <label for="yeEtkinlikYapanTuru">Etkinlik yapan</label>
+          <select id="yeEtkinlikYapanTuru" onchange="yeEtkinlikYapanTuruDegisti()" style="margin-bottom:7px">
+            <option value="Yazar">Yazar</option>
+            <option value="Diğer">Diğer</option>
+          </select>
+          <input id="yeEtkinlikYapanYazar" list="yeYazarListesi" placeholder="Yazar adı yaz…" autocomplete="off">
+          <datalist id="yeYazarListesi"></datalist>
+          <input id="yeEtkinlikYapanDiger" placeholder="İsim yaz…" style="display:none">
+        </div>
         <div class="g2">
           <div class="f" style="margin:0"><label for="yeSinif">Sınıf <span style="font-weight:400;color:var(--ink-soft)">(opsiyonel)</span></label><input id="yeSinif" placeholder="Örn. 7. Sınıf"></div>
           <div class="f" style="margin:0"><label for="yeTarih">Tarih</label><input type="date" id="yeTarih"></div>
@@ -802,13 +810,19 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
           <div class="f" style="margin:0"><label for="yeSaat">Saat <span style="font-weight:400;color:var(--ink-soft)">(opsiyonel)</span></label><input id="yeSaat" placeholder="Örn. 14.00 ya da 13.15/13.55"></div>
           <div class="f" style="margin:0"><label for="yeSehir">Şehir <span style="font-weight:400;color:var(--ink-soft)">(opsiyonel)</span></label><input id="yeSehir" placeholder="Örn. İstanbul"></div>
         </div>
-        <div class="f"><label for="yeKurum">Kurum <span class="req">*</span></label><input id="yeKurum" placeholder="Okul veya kurum adı"></div>
+        <div class="f"><label for="yeKurum">Kurum <span class="req">*</span></label>
+          <input id="yeKurum" list="yeKurumListesi" placeholder="Okul veya kurum adı yaz…" autocomplete="off">
+          <datalist id="yeKurumListesi"></datalist>
+        </div>
         <div class="acts">
           <button class="btn" onclick="butonlaKaydet(this,yazarEtkinlikKaydet)">Kaydet</button>
           <button class="btn ghost" onclick="yazarEtkinlikFormTemizle()">Temizle</button>
         </div>
       </div>
 
+      <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+        <button class="btn ghost sm" onclick="yazarEtkinlikExcelIndir()">Excel'e aktar</button>
+      </div>
       <div id="yazarEtkinlikListe"></div>
     </section>
 
@@ -1267,7 +1281,7 @@ async function git(v,el){
   if(v==='ziyaretler') ziyaretCiz();
   if(v==='secilenler') secimCiz();
   if(v==='depo') depoCiz();
-  if(v==='yazaretkinlik') yazarEtkinlikCiz();
+  if(v==='yazaretkinlik'){ yazarEtkinlikCiz(); yeYazarListesiDoldur(); yeKurumListesiDoldur(); }
   if(v==='raporlar') raporCiz();
   if(v==='ayarlar') ayarCiz();
   window.scrollTo(0,0);
@@ -2244,13 +2258,30 @@ function depoCiz(){
 }
 
 /* ---------- Yazar Etkinlikleri ---------- */
+// "Etkinlik yapan" seçmeli: Yazar (katalogdan otomatik tamamlanır) / Diğer (serbest yazılır).
+// Kaydedilen veride tek bir "yazar" alanı tutulur — bu ayrım sadece formun hangi
+// input'u göstereceğini belirler, veritabanı şemasına yeni bir sütun eklemeye gerek kalmaz.
+function yeEtkinlikYapanTuruDegisti(){
+  const yazarMi = yeEtkinlikYapanTuru.value==='Yazar';
+  yeEtkinlikYapanYazar.style.display = yazarMi ? 'block' : 'none';
+  yeEtkinlikYapanDiger.style.display = yazarMi ? 'none' : 'block';
+}
+function yeYazarListesiDoldur(){
+  const yazarlar=[...new Set(KITAPLAR.map(k=>k.yazar).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'tr'));
+  yeYazarListesi.innerHTML = yazarlar.map(y=>`<option value="${esc(y)}">`).join('');
+}
+function yeKurumListesiDoldur(){
+  const kurumlar=[...new Set(hesaplar.map(h=>h.ad).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'tr'));
+  yeKurumListesi.innerHTML = kurumlar.map(k=>`<option value="${esc(k)}">`).join('');
+}
 async function yazarEtkinlikKaydet(){
   const kurum=yeKurum.value.trim();
   if(!kurum){ alert('Kurum adı gerekli.'); yeKurum.focus(); return false; }
+  const yazarDegeri = yeEtkinlikYapanTuru.value==='Yazar' ? yeEtkinlikYapanYazar.value.trim() : yeEtkinlikYapanDiger.value.trim();
   const duzenlemeMi=duzenlenenYazarEtkinlik!=null;
   const veri={
     etkinlikTuru: yeEtkinlikTuru.value,
-    yazar: yeYazar.value.trim(),
+    yazar: yazarDegeri,
     eser: yeEser.value.trim(),
     sinif: yeSinif.value.trim(),
     etkinlikSekli: yeEtkinlikSekli.value,
@@ -2272,9 +2303,12 @@ async function yazarEtkinlikKaydet(){
   return duzenlemeMi ? 'guncellendi' : true;
 }
 function yazarEtkinlikFormTemizle(){
-  yeEtkinlikTuru.value='Yüz yüze'; yeEtkinlikSekli.value='';
-  yeEser.value=''; yeYazar.value=''; yeSinif.value=''; yeTarih.value=''; yeSaat.value='';
+  yeEtkinlikTuru.value='Fuar'; yeEtkinlikSekli.value='';
+  yeEser.value=''; yeSinif.value=''; yeTarih.value=''; yeSaat.value='';
   yeKurum.value=''; yeSehir.value='';
+  yeEtkinlikYapanTuru.value='Yazar'; yeEtkinlikYapanYazar.value=''; yeEtkinlikYapanDiger.value='';
+  yeEtkinlikYapanTuruDegisti();
+  yeYazarListesiDoldur(); yeKurumListesiDoldur();
   duzenlenenYazarEtkinlik=null;
   yeFormBaslik.textContent='Yeni etkinlik';
 }
@@ -2282,15 +2316,20 @@ function yazarEtkinlikDuzenle(id){
   const e=yazarEtkinlikleri.find(x=>x.id===id); if(!e)return;
   duzenlenenYazarEtkinlik=id;
   yeFormBaslik.textContent='Etkinliği düzenle';
-  yeEtkinlikTuru.value=e.etkinlikTuru||'Yüz yüze';
+  yeEtkinlikTuru.value=e.etkinlikTuru||'Fuar';
   yeEtkinlikSekli.value=e.etkinlikSekli||'';
   yeEser.value=e.eser||'';
-  yeYazar.value=e.yazar||'';
   yeSinif.value=e.sinif||'';
   yeTarih.value=e.tarih||'';
   yeSaat.value=e.saat||'';
   yeKurum.value=e.kurum||'';
   yeSehir.value=e.sehir||'';
+  yeYazarListesiDoldur(); yeKurumListesiDoldur();
+  // kayıtlı bir isim varsa varsayılan olarak "Yazar" seçilir (çoğunlukla öyledir);
+  // kullanıcı isterse "Diğer"e geçip düzenleyebilir.
+  yeEtkinlikYapanTuru.value='Yazar';
+  yeEtkinlikYapanYazar.value=e.yazar||''; yeEtkinlikYapanDiger.value='';
+  yeEtkinlikYapanTuruDegisti();
   yeForm.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 async function yazarEtkinlikSil(id){
@@ -2329,11 +2368,31 @@ function yazarEtkinlikCiz(){
   }).join('');
   yazarEtkinlikListe.innerHTML = `<div class="tbl-wrap"><table class="tbl">
     <thead><tr>
-      <th>Tarih</th><th>Etkinlik türü</th><th>Şekli</th><th>Yazar</th><th>Eser</th>
+      <th>Tarih</th><th>Etkinlik türü</th><th>Şekli</th><th>Etkinlik yapan</th><th>Eser</th>
       <th>Sınıf</th><th>Saat</th><th>Kurum</th><th>Şehir</th><th></th>
     </tr></thead>
     <tbody>${satirlar}</tbody>
   </table></div>`;
+}
+function yazarEtkinlikExcelIndir(){
+  if(typeof XLSX==='undefined'){ alert('Excel kütüphanesi yüklenemedi. İnternet bağlantını kontrol edip tekrar dene.'); return; }
+  if(!yazarEtkinlikleri.length){ alert('Henüz etkinlik kaydı yok.'); return; }
+  const satirlar = yazarEtkinlikleri.map(e=>({
+    'Tarih': e.tarih||'',
+    'Etkinlik Türü': e.etkinlikTuru||'',
+    'Şekli': e.etkinlikSekli||'',
+    'Etkinlik Yapan': e.yazar||'',
+    'Eser': e.eser||'',
+    'Sınıf': e.sinif||'',
+    'Saat': e.saat||'',
+    'Kurum': e.kurum||'',
+    'Şehir': e.sehir||''
+  }));
+  const ws=XLSX.utils.json_to_sheet(satirlar);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Yazar Etkinlikleri');
+  const tarih=new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `fom-yazar-etkinlikleri-${tarih}.xlsx`);
 }
 
 async function secimEkle(){
