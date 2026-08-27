@@ -964,21 +964,67 @@ function yazarEtkinligiFromDB(r){ return {id:r.id, etkinlikTuru:r.etkinlik_turu|
 function yazarEtkinligiToDB(e){ return {id:e.id, etkinlik_turu:e.etkinlikTuru||null, yazar:e.yazar||null, eser:e.eser||null, sinif:e.sinif||null, etkinlik_sekli:e.etkinlikSekli||null, tarih:e.tarih||null, saat:e.saat||null, kurum:e.kurum||null, sehir:e.sehir||null, olusturan:e.olusturan||null}; }
 
 /* bir dizinin TAMAMINI Supabase'le eşitler: eklenenleri/değişenleri yazar, çıkarılanları siler */
+/* ---------- Supabase okuma: 1000 satır sınırını aşan sayfalama ----------
+   Supabase bir sorguda varsayılan olarak en fazla 1000 satır döndürür. Bunun
+   üstü SESSİZCE kırpılır — hata verilmez. Ayrıca .order() belirtilmezse dönen
+   satırların hangileri olduğu belirsizdir ve veritabanı işlemlerinden sonra
+   değişebilir. Bu yüzden burada hem sıralama hem sayfalama zorunlu tutuluyor. */
+async function tumSatirlariCek(tablo, siraSutunu='id'){
+  const SAYFA=1000;
+  let hepsi=[], sayfa=0;
+  while(true){
+    const {data,error} = await db.from(tablo).select('*')
+      .order(siraSutunu, {ascending:true})
+      .range(sayfa*SAYFA, (sayfa+1)*SAYFA-1);
+    if(error) throw error;
+    hepsi=hepsi.concat(data||[]);
+    if(!data || data.length<SAYFA) break;
+    sayfa++;
+    if(sayfa>200){ console.warn('Sayfalama üst sınırına ulaşıldı:', tablo); break; }
+  }
+  return hepsi;
+}
+
+/* ---------- Yazma: sadece GERÇEKTEN değişeni gönder ----------
+   Her tablo için, sunucudan en son alınan/yazılan halin bir kopyası (imza) tutulur.
+   Kaydetme sırasında yerel dizi bu kopyayla karşılaştırılır:
+     • sadece eklenen/değişen kayıtlar yazılır  → az veri, hızlı kayıt
+     • sadece BU cihazın sildiği kayıtlar silinir → başka birinin eklediği
+       kayıt, bu cihaz ondan habersiz olduğu için yanlışlıkla silinmez
+   Eski davranış "elimdeki listede olmayan her şeyi sil" idi; Pelin ve Ömer aynı
+   anda çalışırken birbirlerinin kayıtlarını siliyordu. */
+const _sunucuImzalari={};
+function _imzaHaritasi(tablo){
+  if(!_sunucuImzalari[tablo]) _sunucuImzalari[tablo]=new Map();
+  return _sunucuImzalari[tablo];
+}
+/* Veri sunucudan her tazelendiğinde çağrılır — karşılaştırma zeminini günceller */
+function imzalariKur(tablo, dizi, toDB){
+  const m=new Map();
+  (dizi||[]).forEach(x=>{ try{ m.set(x.id, JSON.stringify(toDB(x))); }catch(e){} });
+  _sunucuImzalari[tablo]=m;
+}
 async function tabloSenkronize(tablo, dizi, toDB, idAlani='id'){
   try{
-    const {data:mevcutlar, error:e1} = await db.from(tablo).select(idAlani);
-    if(e1) throw e1;
-    const mevcutIdler = new Set((mevcutlar||[]).map(r=>r[idAlani]));
-    const yeniIdler = new Set(dizi.map(x=>x.id));
-    const silinecekler = [...mevcutIdler].filter(id=>!yeniIdler.has(id));
+    const imzalar=_imzaHaritasi(tablo);
+    const yeniIdler=new Set(dizi.map(x=>x.id));
+    // Sadece bu cihazın bilerek çıkardığı kayıtlar silinir.
+    // İmza haritası boşsa (henüz tazeleme yapılmadıysa) hiçbir şey silinmez — güvenli taraf.
+    const silinecekler=[...imzalar.keys()].filter(id=>!yeniIdler.has(id));
+    const yazilacaklar=[];
+    dizi.forEach(x=>{
+      const satir=toDB(x);
+      if(imzalar.get(x.id)!==JSON.stringify(satir)) yazilacaklar.push(satir);
+    });
     if(silinecekler.length){
       const {error:e2} = await db.from(tablo).delete().in(idAlani, silinecekler);
       if(e2) throw e2;
     }
-    if(dizi.length){
-      const {error:e3} = await db.from(tablo).upsert(dizi.map(toDB));
+    if(yazilacaklar.length){
+      const {error:e3} = await db.from(tablo).upsert(yazilacaklar);
       if(e3) throw e3;
     }
+    imzalariKur(tablo, dizi, toDB);
     return true;
   }catch(e){
     console.error('Supabase yazma hatası:', tablo, e);
@@ -1077,48 +1123,54 @@ let hesapTurleri=['Okul','Dağıtımcı','Kitapevi'];
 
 async function uygulamayiBaslat(){
   try{
-    const [kRes,hRes,zRes,sRes,kuRes,krRes,dRes,htRes] = await Promise.all([
-      db.from('kitaplar').select('*'),
-      db.from('hesaplar').select('*'),
-      db.from('ziyaretler').select('*'),
-      db.from('secimler').select('*'),
+    // Büyüyen tablolar sayfalama ile çekiliyor (1000 satır sınırını aşmak için).
+    // Küçük ayar tabloları (kullanıcı/durum/tür) doğrudan çekilebilir — binlerce satır olmaz.
+    const [kData,hData,zData,sData,kuRes,krRes,dRes,htRes] = await Promise.all([
+      tumSatirlariCek('kitaplar'),
+      tumSatirlariCek('hesaplar'),
+      tumSatirlariCek('ziyaretler'),
+      tumSatirlariCek('secimler'),
       db.from('kullanicilar').select('*').order('sira'),
-      db.from('kullanici_rolleri').select('*'),
+      db.from('kullanici_rolleri').select('*').order('kullanici_ad'),
       db.from('durumlar').select('*').order('sira'),
       db.from('hesap_turleri').select('*').order('sira'),
     ]);
-    for(const r of [kRes,hRes,zRes,sRes,kuRes,krRes,dRes,htRes]) if(r.error) throw r.error;
+    for(const r of [kuRes,krRes,dRes,htRes]) if(r.error) throw r.error;
 
-    KITAPLAR = (kRes.data||[]).map(kitapFromDB).filter(k=>!KALDIRILAN_BARKODLAR.includes(k.barkod));
+    KITAPLAR = kData.map(kitapFromDB).filter(k=>!KALDIRILAN_BARKODLAR.includes(k.barkod));
     if(!KITAPLAR.length){
       // Supabase'de henüz katalog yoksa (SQL çalıştırılmadıysa) en azından TOHUM'dan başla
       KITAPLAR = JSON.parse(JSON.stringify(KATALOG_TOHUM)).map(({fiyat,baski,...r})=>r)
         .filter(k=>!KALDIRILAN_BARKODLAR.includes(k.barkod));
     }
-    hesaplar = (hRes.data||[]).map(hesapFromDB);
-    ziyaretler = (zRes.data||[]).map(ziyaretFromDB);
-    secimler = (sRes.data||[]).map(secimFromDB);
+    hesaplar = hData.map(hesapFromDB);
+    ziyaretler = zData.map(ziyaretFromDB);
+    secimler = sData.map(secimFromDB);
     if(kuRes.data && kuRes.data.length) kullanicilar = kuRes.data.map(r=>r.ad);
     kullaniciRolleri = {}; (krRes.data||[]).forEach(r=>{ kullaniciRolleri[r.kullanici_ad]=r.rol; });
     if(dRes.data && dRes.data.length) durumlar = dRes.data.map(r=>r.ad);
     if(htRes.data && htRes.data.length) hesapTurleri = htRes.data.map(r=>r.ad);
 
     indeksle();
+    // Sunucudan gelen halin imzası alınır — bundan sonraki kayıtlarda "neyin
+    // gerçekten değiştiği" ve "bu cihazın neyi sildiği" buna göre hesaplanır.
+    imzalariKur('kitaplar', KITAPLAR, kitapToDB);
+    imzalariKur('hesaplar', hesaplar, hesapToDB);
+    imzalariKur('ziyaretler', ziyaretler, ziyaretToDB);
+    imzalariKur('secimler', secimler, secimToDB);
 
     // depo_bildirimleri tablosu henüz oluşturulmamış olabilir (SQL çalıştırılmadan) —
     // bu durumda diğer her şeyin açılmasını engellememesi için ayrı, hataya toleranslı çekiyoruz.
     try{
-      const dbRes = await db.from('depo_bildirimleri').select('*');
-      if(dbRes.error) throw dbRes.error;
-      depoBildirimleri = (dbRes.data||[]).map(depoBildirimiFromDB);
+      depoBildirimleri = (await tumSatirlariCek('depo_bildirimleri')).map(depoBildirimiFromDB);
+      imzalariKur('depo_bildirimleri', depoBildirimleri, depoBildirimiToDB);
     }catch(e){
       console.warn('depo_bildirimleri tablosu henüz hazır değil (SQL çalıştırılmamış olabilir):', e);
       depoBildirimleri = [];
     }
     try{
-      const yeRes = await db.from('yazar_etkinlikleri').select('*');
-      if(yeRes.error) throw yeRes.error;
-      yazarEtkinlikleri = (yeRes.data||[]).map(yazarEtkinligiFromDB);
+      yazarEtkinlikleri = (await tumSatirlariCek('yazar_etkinlikleri')).map(yazarEtkinligiFromDB);
+      imzalariKur('yazar_etkinlikleri', yazarEtkinlikleri, yazarEtkinligiToDB);
     }catch(e){
       console.warn('yazar_etkinlikleri tablosu henüz hazır değil (SQL çalıştırılmamış olabilir):', e);
       yazarEtkinlikleri = [];
@@ -1186,43 +1238,43 @@ function formlarKirliMi(){
 async function veriTazele(hangiler){
   const sorgular = {
     kitaplar: async ()=>{
-      const {data,error} = await db.from('kitaplar').select('*');
-      if(error) throw error;
+      const data = await tumSatirlariCek('kitaplar');
       const yeni = data.map(kitapFromDB).filter(k=>!KALDIRILAN_BARKODLAR.includes(k.barkod));
       if(yeni.length) KITAPLAR = yeni;
       indeksle();
+      imzalariKur('kitaplar', KITAPLAR, kitapToDB);
     },
     hesaplar: async ()=>{
-      const {data,error} = await db.from('hesaplar').select('*');
-      if(error) throw error;
+      const data = await tumSatirlariCek('hesaplar');
       hesaplar = data.map(hesapFromDB);
+      imzalariKur('hesaplar', hesaplar, hesapToDB);
     },
     ziyaretler: async ()=>{
-      const {data,error} = await db.from('ziyaretler').select('*');
-      if(error) throw error;
+      const data = await tumSatirlariCek('ziyaretler');
       ziyaretler = data.map(ziyaretFromDB);
+      imzalariKur('ziyaretler', ziyaretler, ziyaretToDB);
     },
     secimler: async ()=>{
-      const {data,error} = await db.from('secimler').select('*');
-      if(error) throw error;
+      const data = await tumSatirlariCek('secimler');
       secimler = data.map(secimFromDB);
+      imzalariKur('secimler', secimler, secimToDB);
     },
     depoBildirimleri: async ()=>{
       // depo_bildirimleri tablosu SQL çalıştırılmadıysa henüz yok olabilir —
       // bu durumda sekme değişimini engellememesi için sessizce boş bırakıyoruz.
       try{
-        const {data,error} = await db.from('depo_bildirimleri').select('*');
-        if(error) throw error;
+        const data = await tumSatirlariCek('depo_bildirimleri');
         depoBildirimleri = data.map(depoBildirimiFromDB);
+        imzalariKur('depo_bildirimleri', depoBildirimleri, depoBildirimiToDB);
       }catch(e){
         console.warn('depo_bildirimleri tablosu henüz hazır değil:', e);
       }
     },
     yazarEtkinlikleri: async ()=>{
       try{
-        const {data,error} = await db.from('yazar_etkinlikleri').select('*');
-        if(error) throw error;
+        const data = await tumSatirlariCek('yazar_etkinlikleri');
         yazarEtkinlikleri = data.map(yazarEtkinligiFromDB);
+        imzalariKur('yazar_etkinlikleri', yazarEtkinlikleri, yazarEtkinligiToDB);
       }catch(e){
         console.warn('yazar_etkinlikleri tablosu henüz hazır değil:', e);
       }
@@ -1938,6 +1990,9 @@ async function ziyaretKaydet(){
   };
   let ziyaretId;
   const duzenlemeMi=duzenlenenZiyaret!=null;
+  // Kayıt başarısız olursa geri dönebilmek için önceki hali sakla — aksi halde
+  // ekranda duran ama sunucuya yazılmamış "hayalet" kayıt oluşuyor.
+  const oncekiZiyaretler=[...ziyaretler];
   if(duzenlemeMi){
     ziyaretId=duzenlenenZiyaret;
     ziyaretler=ziyaretler.map(z=>z.id===duzenlenenZiyaret?{...z,...veri,duzenleyen:ben}:z);
@@ -1946,6 +2001,7 @@ async function ziyaretKaydet(){
     ziyaretler.push({id:ziyaretId,...veri,ekleyen:ben});
   }
   const basarili=await yaz('ziyaretler',ziyaretler);
+  if(!basarili) ziyaretler=oncekiZiyaretler;
 
   // Cumhur'un ziyaretten önce hazırlanabilmesi için, YENİ bir ziyaret kaydedilirken
   // gösterilen her kitap otomatik olarak "Depoya Bildir"e de gider. Sadece yeni ziyarette —
@@ -1955,10 +2011,18 @@ async function ziyaretKaydet(){
     const h=hesaplar.find(x=>x.id===veri.hesapId);
     const okulAdi = h ? h.ad : '';
     if(okulAdi){
-      veri.kitaplar.forEach(kitapId=>{
-        depoBildirimleri.push({id:yeniId(), okulAdi, kitapId, tarih:veri.tarih, gonderildi:false, olusturan:ben, kaynakZiyaretId:ziyaretId});
-      });
-      await yaz('depoBildirimleri', depoBildirimleri);
+      const eklenenler=veri.kitaplar.map(kitapId=>({
+        id:yeniId(), okulAdi, kitapId, tarih:veri.tarih, gonderildi:false, olusturan:ben, kaynakZiyaretId:ziyaretId
+      }));
+      depoBildirimleri.push(...eklenenler);
+      const depoBasarili = await yaz('depoBildirimleri', depoBildirimleri);
+      if(!depoBasarili){
+        // Ziyaret kaydedildi ama depo bildirimi gitmedi — sessiz kalırsak Cumhur
+        // bu kitapları hiç görmez. Yerel listeyi geri alıp kullanıcıyı uyarıyoruz.
+        const eklenenIdler=new Set(eklenenler.map(x=>x.id));
+        depoBildirimleri=depoBildirimleri.filter(d=>!eklenenIdler.has(d.id));
+        alert('Ziyaret kaydedildi, ancak kitaplar depoya bildirilemedi.\n\nDepoya Bildir sekmesinden elle ekleyebilirsin.');
+      }
     }
   }
 
