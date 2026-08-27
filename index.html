@@ -637,11 +637,6 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
             <span id="kitapOzet">Kitap seç</span><span class="ok">▾</span>
           </button>
           <div class="acilir-panel" id="kitapPanel" style="display:none">
-            <input id="zKitapAra" placeholder="Ara: ad, yazar, barkod" autocomplete="off" oninput="kitapListesiCiz()">
-            <div class="g2" style="margin-top:8px">
-              <select id="zSinif" onchange="kitapListesiCiz()"></select>
-              <select id="zTur" onchange="kitapListesiCiz()"></select>
-            </div>
             <div class="tikli" id="tikliListe"></div>
             <div class="panel-alt">
               <span id="tikliSayi">0 seçili</span>
@@ -791,7 +786,9 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
           </div>
         </div>
         <div class="f"><label for="yeEser">Eser <span style="font-weight:400;color:var(--ink-soft)">(opsiyonel)</span></label>
-          <input id="yeEser" placeholder="Kitap adı ya da etkinlik açıklaması"></div>
+          <input id="yeEser" list="yeEserListesi" placeholder="Kitap adı ya da etkinlik açıklaması" autocomplete="off">
+          <datalist id="yeEserListesi"></datalist>
+        </div>
         <div class="f">
           <label for="yeEtkinlikYapanTuru">Etkinlik yapan</label>
           <select id="yeEtkinlikYapanTuru" onchange="yeEtkinlikYapanTuruDegisti()" style="margin-bottom:7px">
@@ -1281,7 +1278,7 @@ async function git(v,el){
   if(v==='ziyaretler') ziyaretCiz();
   if(v==='secilenler') secimCiz();
   if(v==='depo') depoCiz();
-  if(v==='yazaretkinlik'){ yazarEtkinlikCiz(); yeYazarListesiDoldur(); yeKurumListesiDoldur(); }
+  if(v==='yazaretkinlik'){ yazarEtkinlikCiz(); yeYazarListesiDoldur(); yeEserListesiDoldur(); yeKurumListesiDoldur(); }
   if(v==='raporlar') raporCiz();
   if(v==='ayarlar') ayarCiz();
   window.scrollTo(0,0);
@@ -1823,33 +1820,9 @@ function zKisiDegisti(){
 }
 
 /* tikli kitap listesi */
-function panelKademeSeviyeleri(){
-  if(zKademeWrap.style.display!=='none' && zKademe.value && KADEME_SEV[zKademe.value])
-    return KADEME_SEV[zKademe.value];
-  const h=hesaplar.find(x=>x.id===zHesapSeciliId);
-  const kd=(h&&h.kademe)||[];
-  if(kd.length===1 && KADEME_SEV[kd[0]]) return KADEME_SEV[kd[0]];
-  if(kd.length>1){
-    const birlesim=[...new Set(kd.flatMap(k=>KADEME_SEV[k]||[]))];
-    return birlesim.length?birlesim:null;
-  }
-  return null;
-}
 function kitapListesiAc(){
   kitapPanel.style.display='block'; kitapAcButon.style.display='none';
-  zSinif.innerHTML = '<option value="">Tüm sınıflar</option>'
-    + `<option value="[0]">Okul Öncesi</option>`
-    + `<option value="[1,2,3,4]">İlkokul (1-4)</option>`
-    + `<option value="[5,6,7,8]">Ortaokul (5-8)</option>`
-    + `<option value="[9]">Lise</option>`
-    + [1,2,3,4,5,6,7,8].map(n=>`<option value="[${n}]">${n}. Sınıf</option>`).join('');
-  zTur.innerHTML='<option value="">Tüm türler</option>'+
-    [...new Set(KITAPLAR.map(k=>k.turu))].sort((a,b)=>a.localeCompare(b,'tr'))
-      .map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
-  const varsayilan=panelKademeSeviyeleri();
-  zSinif.value = varsayilan ? JSON.stringify(varsayilan) : '';
-  zTur.value='';
-  zKitapAra.value=''; kitapListesiCiz(); zKitapAra.focus();
+  kitapListesiCiz();
 }
 function kitapListesiKapat(){
   kitapPanel.style.display='none'; kitapAcButon.style.display='flex';
@@ -1898,18 +1871,12 @@ function kitapSatiriHtml(k, yazariGoster){
       </span>
     </label>`;
 }
+/* Ziyaretteki "Gösterilen kitaplar" — arama/filtre olmadan, tüm katalog
+   İl seçimindeki gibi alfabetik sırayla, tek liste halinde alt alta açılır. */
 function kitapListesiCiz(){
-  const q=norm(zKitapAra.value.trim());
-  const sevler = zSinif.value ? JSON.parse(zSinif.value) : null;
-  const tr=zTur.value;
-  const r=KITAPLAR.filter(k=>{
-    if(sevler && !k.seviye.some(s=>sevler.includes(s))) return false;
-    if(tr && k.turu!==tr) return false;
-    if(q && !k._s.includes(q)) return false;
-    return true;
-  });
+  const r=[...KITAPLAR].sort((a,b)=>a.ad.localeCompare(b.ad,'tr'));
   tikliListe.innerHTML = r.length ? r.map(k=>kitapSatiriHtml(k,true)).join('')
-    : `<div class="yok">Eşleşen kitap yok</div>`;
+    : `<div class="yok">Katalogda kitap yok</div>`;
   tikliSayiCiz();
 }
 function kitapTikle(id,acik){
@@ -2303,6 +2270,10 @@ function yeYazarListesiDoldur(){
   const yazarlar=[...new Set(KITAPLAR.map(k=>k.yazar).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'tr'));
   yeYazarListesi.innerHTML = yazarlar.map(y=>`<option value="${esc(y)}">`).join('');
 }
+function yeEserListesiDoldur(){
+  const eserler=[...new Set(KITAPLAR.map(k=>k.ad).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'tr'));
+  yeEserListesi.innerHTML = eserler.map(e=>`<option value="${esc(e)}">`).join('');
+}
 function yeKurumListesiDoldur(){
   const kurumlar=[...new Set(hesaplar.map(h=>h.ad).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'tr'));
   yeKurumListesi.innerHTML = kurumlar.map(k=>`<option value="${esc(k)}">`).join('');
@@ -2341,7 +2312,7 @@ function yazarEtkinlikFormTemizle(){
   yeKurum.value=''; yeSehir.value='';
   yeEtkinlikYapanTuru.value='Yazar'; yeEtkinlikYapanYazar.value=''; yeEtkinlikYapanDiger.value='';
   yeEtkinlikYapanTuruDegisti();
-  yeYazarListesiDoldur(); yeKurumListesiDoldur();
+  yeYazarListesiDoldur(); yeEserListesiDoldur(); yeKurumListesiDoldur();
   duzenlenenYazarEtkinlik=null;
   yeFormBaslik.textContent='Yeni etkinlik';
 }
@@ -2357,7 +2328,7 @@ function yazarEtkinlikDuzenle(id){
   yeSaat.value=e.saat||'';
   yeKurum.value=e.kurum||'';
   yeSehir.value=e.sehir||'';
-  yeYazarListesiDoldur(); yeKurumListesiDoldur();
+  yeYazarListesiDoldur(); yeEserListesiDoldur(); yeKurumListesiDoldur();
   // kayıtlı bir isim varsa varsayılan olarak "Yazar" seçilir (çoğunlukla öyledir);
   // kullanıcı isterse "Diğer"e geçip düzenleyebilir.
   yeEtkinlikYapanTuru.value='Yazar';
