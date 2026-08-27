@@ -533,7 +533,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
         <div class="f"><label for="hAd">Hesap adı <span class="req">*</span></label><input id="hAd" placeholder="Örn. Şişli Terakki İlkokulu"></div>
         <div class="g2">
           <div class="f"><label for="hTur">Hesap türü</label>
-            <select id="hTur" onchange="hesapTuru()"><option>Okul</option><option>Dağıtımcı</option><option>Kitapevi</option></select>
+            <select id="hTur" onchange="hesapTuru()"><option>Okul</option><option>Dağıtımcı</option><option>Kitabevi</option></select>
           </div>
           <div class="f" id="hOzelWrap"><label for="hOzel">Okul türü</label>
             <select id="hOzel"><option>Devlet</option><option>Özel</option><option>Zincir</option></select>
@@ -1119,7 +1119,7 @@ let kullanicilar=['Pelin','Ömer'];
 let kullaniciRolleri={};
 function kullaniciRolu(isim){ return kullaniciRolleri[isim]==='kisitli' ? 'kisitli' : 'tam'; }
 let durumlar=['İlk görüşme','Tekrar görüşme','Karar bekliyor','Olumlu sonuçlandı','Olumsuz'];
-let hesapTurleri=['Okul','Dağıtımcı','Kitapevi'];
+let hesapTurleri=['Okul','Dağıtımcı','Kitabevi'];
 
 async function uygulamayiBaslat(){
   try{
