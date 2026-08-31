@@ -751,7 +751,6 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
             <span id="secimKitapOzet">Kitap seç</span><span class="ok">▾</span>
           </button>
           <div class="acilir-panel" id="secimKitapPanel" style="display:none">
-            <input id="secimKitapAra" placeholder="Ara: ad, yazar, barkod (en az 2 harf)" autocomplete="off" oninput="secimKitapListesiCiz()">
             <div class="tikli" id="secimTikliListe"></div>
             <div class="panel-alt">
               <span id="secimTikliSayi">0 seçili</span>
@@ -2304,7 +2303,7 @@ document.addEventListener('click',e=>{
 
 function secimKitapPanelAc(){
   secimKitapPanel.style.display='block'; secimKitapAcButon.style.display='none';
-  secimKitapAra.value=''; secimKitapListesiCiz(); secimKitapAra.focus();
+  secimKitapListesiCiz();
 }
 function secimKitapPanelKapat(){
   secimKitapPanel.style.display='none'; secimKitapAcButon.style.display='flex';
@@ -2315,17 +2314,14 @@ function secimKitapOzetCiz(){
     ? `${secimSecilenKitaplar.length} kitap seçili — değiştir`
     : 'Kitap seç';
 }
+/* Ziyaretlerdeki "Gösterilen kitaplar" ile aynı davranış: arama/filtre olmadan
+   tüm katalog alfabetik sırayla, tek liste halinde alt alta açılır. */
 function secimKitapListesiCiz(){
-  const q=norm(secimKitapAra.value.trim());
-  if(q.length<2){
-    secimTikliListe.innerHTML=`<div class="yok">Aramak için en az 2 harf yaz</div>`;
-    secimTikliSayiCiz(); return;
-  }
-  const r=KITAPLAR.filter(k=>k._s.includes(q)).slice(0,50);
+  const r=[...KITAPLAR].sort((a,b)=>a.ad.localeCompare(b.ad,'tr'));
   secimTikliListe.innerHTML = r.length ? r.map(k=>`<label>
       <input type="checkbox" value="${k.id}" ${secimSecilenKitaplar.includes(k.id)?'checked':''} onchange="secimKitapTikle(${k.id},this.checked)">
       <span>${esc(k.ad)}<span class="s">${esc(k.yazar)} · ${esc(k.turu)} · ${esc(k.sinif)}</span></span>
-    </label>`).join('') : `<div class="yok">Eşleşen kitap yok</div>`;
+    </label>`).join('') : `<div class="yok">Katalogda kitap yok</div>`;
   secimTikliSayiCiz();
 }
 function secimTikliSayiCiz(){ secimTikliSayi.textContent=`${secimSecilenKitaplar.length} seçili`; }
@@ -2597,7 +2593,7 @@ function yazarEtkinlikExcelIndir(){
     'Kurum': e.kurum||'',
     'Şehir': e.sehir||''
   }));
-  const ws=XLSX.utils.json_to_sheet(satirlar);
+  const ws=excelSayfasiHazirla(satirlar);
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Yazar Etkinlikleri');
   const tarih=new Date().toISOString().slice(0,10);
@@ -2736,6 +2732,28 @@ function raporCiz(){
 }
 /* "Gösterim kaydı" panelindeki arama/filtreye bakmadan, TÜM ziyaretlerdeki
    gösterilen kitapları (hangi kitap nereye tanıtılmış) Excel olarak indirir. */
+/* Excel çıktısı ortak hazırlığı.
+   Sütun genişliği ayarlanmazsa Excel dosyayı dar varsayılan sütunlarla açıyor
+   ve kitap/okul adları kesik görünüyor. Burada her sütunun genişliği, o sütundaki
+   en uzun içeriğe göre hesaplanıyor (alt sınır 10, üst sınır 45 karakter).
+   Ayrıca başlık satırına otomatik filtre ekleniyor — Excel'de sıralama/süzme
+   için açılır oklar çıkıyor. */
+function excelSayfasiHazirla(satirlar){
+  const ws=XLSX.utils.json_to_sheet(satirlar);
+  if(!satirlar.length) return ws;
+  const basliklar=Object.keys(satirlar[0]);
+  ws['!cols']=basliklar.map(b=>{
+    let enUzun=String(b).length;
+    satirlar.forEach(s=>{
+      const d = s[b]==null ? '' : String(s[b]);
+      if(d.length>enUzun) enUzun=d.length;
+    });
+    return {wch: Math.min(Math.max(enUzun+2, 10), 45)};
+  });
+  const aralik=XLSX.utils.decode_range(ws['!ref']);
+  ws['!autofilter']={ref: XLSX.utils.encode_range({s:{r:0,c:0}, e:{r:aralik.e.r, c:aralik.e.c}})};
+  return ws;
+}
 function gosterimExcelIndir(){
   if(typeof XLSX==='undefined'){ alert('Excel kütüphanesi yüklenemedi. İnternet bağlantını kontrol edip tekrar dene.'); return; }
   const satirlar=[];
@@ -2756,7 +2774,7 @@ function gosterimExcelIndir(){
     });
   });
   if(!satirlar.length){ alert('Henüz gösterilen kitap yok.'); return; }
-  const ws=XLSX.utils.json_to_sheet(satirlar);
+  const ws=excelSayfasiHazirla(satirlar);
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Gösterim Kaydı');
   const tarih=new Date().toISOString().slice(0,10);
@@ -2783,7 +2801,7 @@ function secilenExcelIndir(){
       'Not': s.not||''
     };
   });
-  const ws=XLSX.utils.json_to_sheet(satirlar);
+  const ws=excelSayfasiHazirla(satirlar);
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Seçilen Kayıtlar');
   const tarih=new Date().toISOString().slice(0,10);
