@@ -408,6 +408,30 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
    ama sadece okul isimli butonlar (Hepsi'den sonraki her buton) gizlenir —
    filtreleme kodu/mantığı bilinçli olarak korunuyor, sadece o kısım görünmüyor. */
 #ziyaretOkulFiltre button:not(:first-child){display:none}
+
+/* ---------- açılır kapanır klasör başlığı ---------- */
+.klasor{
+  display:flex;align-items:center;gap:10px;
+  padding:14px 16px;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r);cursor:pointer;user-select:none;margin-bottom:12px;
+  box-shadow:0 1px 2px rgba(22,35,61,.04);
+  transition:border-color .15s,box-shadow .2s ease;
+}
+.klasor:hover{border-color:var(--accent);box-shadow:0 4px 16px rgba(22,35,61,.07)}
+.klasor-ok{
+  color:var(--accent);font-size:13px;flex:none;
+  transition:transform .2s ease;display:inline-block;
+}
+.klasor.acik .klasor-ok{transform:rotate(90deg)}
+.klasor-ad{
+  font-family:var(--display);font-weight:700;font-size:17px;
+  letter-spacing:-.012em;flex:1;
+}
+.klasor-sayi{
+  font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums;
+  color:var(--ink-soft);background:var(--line-soft);
+  padding:3px 10px;border-radius:100px;flex:none;
+}
 </style>
 </head>
 <body>
@@ -590,12 +614,20 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
         </div>
       </div>
 
-      <div class="frow" id="ilFiltreWrap" style="display:none">
-        <div class="flabel">İle göre</div>
-        <div class="ladder" id="ilFiltre"></div>
+      <div class="klasor" id="hesapKlasorBaslik" onclick="hesapKlasorToggle()">
+        <span class="klasor-ok" id="hesapKlasorOk">▸</span>
+        <span class="klasor-ad">Hesaplar</span>
+        <span class="klasor-sayi" id="hesapKlasorSayi">0</span>
       </div>
 
-      <div id="hesapListe"></div>
+      <div id="hesapKlasorIcerik" style="display:none">
+        <div class="frow" id="ilFiltreWrap" style="display:none">
+          <div class="flabel">İle göre</div>
+          <div class="ladder" id="ilFiltre"></div>
+        </div>
+
+        <div id="hesapListe"></div>
+      </div>
     </section>
 
     <!-- ZİYARETLER -->
@@ -1583,6 +1615,9 @@ async function hesapKaydet(){
   ['hAd','hAdres','hNot','hKisiAd','hKisiGorev','hKisiTel','hKisiMail'].forEach(i=>document.getElementById(i).value='');
   document.querySelectorAll('.kdm').forEach(c=>c.checked=false);
   ilDoldur();
+  // Kaydedilen hesabın görünür olması için klasörü aç — kapalıyken kullanıcı
+  // kaydın gerçekten eklenip eklenmediğini göremez.
+  hesapKlasorAcik=true;
   kapat('hForm'); hesapCiz();
   if(!basarili) return false;
   return duzenlemeMi ? 'guncellendi' : true;
@@ -1688,6 +1723,10 @@ function hesapCiz(korunanIl){
       iller.map(i=>`<button aria-pressed="${ilSecili===i?'true':'false'}" onclick="ilSec('${esc(i)}',this)">${esc(i)} (${hesaplar.filter(h=>h.il===i).length})</button>`).join('');
   }
   const liste = ilSecili?hesaplar.filter(h=>h.il===ilSecili):hesaplar;
+  // Klasör başlığındaki sayı, o an filtreye göre görünen hesap sayısını gösterir
+  const sayiEl=document.getElementById('hesapKlasorSayi');
+  if(sayiEl) sayiEl.textContent=liste.length;
+  hesapKlasorUygula();
   hesapListe.innerHTML = liste.length ? liste.map(h=>{
     const zs=ziyaretler.filter(z=>z.hesapId===h.id).length;
     const acikMi=acikHesaplar.has(h.id);
@@ -1723,6 +1762,21 @@ function hesapCiz(korunanIl){
       ${detay}
     </article>`;
   }).join('') : `<div class="empty"><b>Henüz hesap yok</b><p>İlk okulu veya dağıtımcıyı ekleyerek başla.</p></div>`;
+}
+/* Hesap listesi, uzayınca sayfayı doldurmasın diye açılır kapanır bir klasörde.
+   Açık/kapalı durumu oturum boyunca hatırlanır — sekmeler arası gezerken
+   her seferinde tekrar açmak gerekmesin. */
+let hesapKlasorAcik=false;
+function hesapKlasorToggle(){
+  hesapKlasorAcik=!hesapKlasorAcik;
+  hesapKlasorUygula();
+}
+function hesapKlasorUygula(){
+  const baslik=document.getElementById('hesapKlasorBaslik');
+  const icerik=document.getElementById('hesapKlasorIcerik');
+  if(!baslik||!icerik) return;
+  icerik.style.display = hesapKlasorAcik ? 'block' : 'none';
+  baslik.classList.toggle('acik', hesapKlasorAcik);
 }
 function hesapDetayToggle(id){
   if(acikHesaplar.has(id)) acikHesaplar.delete(id);
