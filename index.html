@@ -1707,13 +1707,18 @@ function hesapCiz(korunanIl){
         <button class="btn ghost sm" onclick="hesapDuzenle(${h.id})">Düzenle</button>
         <button class="btn link" onclick="hesapSil(${h.id})">Sil</button>
       </div>` : '';
+    // Başlıkta ilçe de gösterilir (Ziyaretler sekmesindeki gibi) — aynı isimli
+    // şubeler ("doğa koleji" Ataşehir / Bayrampaşa) ilk bakışta ayırt edilsin.
+    // Etiketlerde ayırt edici bilgi (kademe, konum) başa alındı; "Okul/Özel"
+    // gibi neredeyse her kayıtta aynı olan bilgiler sona bırakıldı.
+    const baslik = `${esc(h.ad)}${h.ilce||h.il?` — ${esc(h.ilce||h.il)}`:''}`;
     return `<article class="rec">
-      <div class="rec-h" style="cursor:pointer" onclick="hesapDetayToggle(${h.id})"><h4>${esc(h.ad)}</h4><span class="price">${zs} ziyaret</span></div>
+      <div class="rec-h" style="cursor:pointer" onclick="hesapDetayToggle(${h.id})"><h4>${baslik}</h4><span class="price">${zs} ziyaret</span></div>
       <div class="tags">
-        <span class="tag g">${esc(h.tur)}</span>
-        ${h.ozel?`<span class="tag">${esc(h.ozel)}</span>`:''}
         ${(h.kademe||[]).map(k=>`<span class="tag">${esc(k)}</span>`).join('')}
         ${h.il?`<span class="tag o">${esc(h.il)}${h.ilce?' / '+esc(h.ilce):''}</span>`:''}
+        <span class="tag g">${esc(h.tur)}</span>
+        ${h.ozel?`<span class="tag">${esc(h.ozel)}</span>`:''}
       </div>
       ${detay}
     </article>`;
