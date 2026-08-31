@@ -432,6 +432,20 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
   color:var(--ink-soft);background:var(--line-soft);
   padding:3px 10px;border-radius:100px;flex:none;
 }
+
+/* ---------- depoya bildirilmeyi bekleyen seçimler ---------- */
+.bekleyen-kutu{
+  background:#FBF6EA;border:1px solid #EDE0C4;border-radius:var(--r);
+  padding:14px 16px;margin-bottom:14px;
+}
+.bekleyen-satir{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:9px 0;border-bottom:1px solid rgba(0,0,0,.06);
+}
+.bekleyen-satir:last-child{border-bottom:none}
+.bekleyen-satir b{font-weight:600;font-size:14.5px}
+.bekleyen-satir .d{color:var(--ink-soft);font-size:13px;margin-top:2px}
+.bekleyen-satir button{flex:none}
 </style>
 </head>
 <body>
@@ -778,6 +792,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
           <button class="clr" id="secimAraClr" onclick="secimAramaTemizle()" aria-label="Aramayı temizle">×</button>
         </div>
 
+        <div id="secimBekleyenler"></div>
         <div id="secilenListe"></div>
       </div>
     </section>
@@ -1011,10 +1026,10 @@ function hesapToDB(h){ return {id:h.id, ad:h.ad, tur:h.tur, ozel:h.ozel||null, k
 function ziyaretFromDB(r){ return {id:r.id, hesapId:r.hesap_id, tarih:r.tarih, kademe:r.kademe||'', gorusmeTuru:r.gorusme_turu||'', kisi:r.kisi||'', not:r.aciklama||'', kitaplar:r.kitaplar||[], ekleyen:r.ekleyen||'', duzenleyen:r.duzenleyen||''}; }
 function ziyaretToDB(z){ return {id:z.id, hesap_id:z.hesapId, tarih:z.tarih, kademe:z.kademe||null, gorusme_turu:z.gorusmeTuru||null, kisi:z.kisi||null, aciklama:z.not||null, kitaplar:z.kitaplar||[], ekleyen:z.ekleyen||null, duzenleyen:z.duzenleyen||null}; }
 
-function secimFromDB(r){ return {id:r.id, ziyaretId:r.ziyaret_id, hesapId:r.hesap_id, kitapId:r.kitap_id, tarih:r.tarih, donem:r.donem||'', satildi:!!r.satildi, adet:(r.adet==null?null:r.adet), not:r.aciklama||''}; }
-function secimToDB(s){ return {id:s.id, ziyaret_id:s.ziyaretId??null, hesap_id:s.hesapId, kitap_id:s.kitapId, tarih:s.tarih, donem:s.donem||null, satildi:!!s.satildi, adet:(s.adet==null?null:s.adet), aciklama:s.not||''}; }
-function depoBildirimiFromDB(r){ return {id:r.id, okulAdi:r.okul_adi, kitapId:r.kitap_id, tarih:r.tarih, gonderildi:!!r.gonderildi, olusturan:r.olusturan||'', kaynakZiyaretId:r.kaynak_ziyaret_id??null}; }
-function depoBildirimiToDB(d){ return {id:d.id, okul_adi:d.okulAdi, kitap_id:d.kitapId, tarih:d.tarih, gonderildi:!!d.gonderildi, olusturan:d.olusturan||'', kaynak_ziyaret_id:d.kaynakZiyaretId??null}; }
+function secimFromDB(r){ return {id:r.id, ziyaretId:r.ziyaret_id, hesapId:r.hesap_id, kitapId:r.kitap_id, tarih:r.tarih, donem:r.donem||'', satildi:!!r.satildi, adet:(r.adet==null?null:r.adet), not:r.aciklama||'', depoyaBildirildi:!!r.depoya_bildirildi}; }
+function secimToDB(s){ return {id:s.id, ziyaret_id:s.ziyaretId??null, hesap_id:s.hesapId, kitap_id:s.kitapId, tarih:s.tarih, donem:s.donem||null, satildi:!!s.satildi, adet:(s.adet==null?null:s.adet), aciklama:s.not||'', depoya_bildirildi:!!s.depoyaBildirildi}; }
+function depoBildirimiFromDB(r){ return {id:r.id, okulAdi:r.okul_adi, kitapId:r.kitap_id, tarih:r.tarih, gonderildi:!!r.gonderildi, olusturan:r.olusturan||'', kaynakZiyaretId:r.kaynak_ziyaret_id??null, adet:(r.adet==null?null:r.adet), tur:r.tur||'Numune'}; }
+function depoBildirimiToDB(d){ return {id:d.id, okul_adi:d.okulAdi, kitap_id:d.kitapId, tarih:d.tarih, gonderildi:!!d.gonderildi, olusturan:d.olusturan||'', kaynak_ziyaret_id:d.kaynakZiyaretId??null, adet:(d.adet==null?null:d.adet), tur:d.tur||'Numune'}; }
 function yazarEtkinligiFromDB(r){ return {id:r.id, etkinlikTuru:r.etkinlik_turu||'', yazar:r.yazar||'', eser:r.eser||'', sinif:r.sinif||'', etkinlikSekli:r.etkinlik_sekli||'', tarih:r.tarih, saat:r.saat||'', kurum:r.kurum||'', sehir:r.sehir||'', olusturan:r.olusturan||''}; }
 function yazarEtkinligiToDB(e){ return {id:e.id, etkinlik_turu:e.etkinlikTuru||null, yazar:e.yazar||null, eser:e.eser||null, sinif:e.sinif||null, etkinlik_sekli:e.etkinlikSekli||null, tarih:e.tarih||null, saat:e.saat||null, kurum:e.kurum||null, sehir:e.sehir||null, olusturan:e.olusturan||null}; }
 
@@ -2104,28 +2119,10 @@ async function ziyaretKaydet(){
   const basarili=await yaz('ziyaretler',ziyaretler);
   if(!basarili) ziyaretler=oncekiZiyaretler;
 
-  // Cumhur'un ziyaretten önce hazırlanabilmesi için, YENİ bir ziyaret kaydedilirken
-  // gösterilen her kitap otomatik olarak "Depoya Bildir"e de gider. Sadece yeni ziyarette —
-  // düzenlemede tekrar tekrar aynı kitaplar için kayıt oluşmasın diye. "Depoya Bildir"
-  // sekmesindeki bağımsız/manuel akışa hiç dokunmuyoruz, o aynen çalışmaya devam eder.
-  if(basarili && !duzenlemeMi && veri.kitaplar.length){
-    const h=hesaplar.find(x=>x.id===veri.hesapId);
-    const okulAdi = h ? h.ad : '';
-    if(okulAdi){
-      const eklenenler=veri.kitaplar.map(kitapId=>({
-        id:yeniId(), okulAdi, kitapId, tarih:veri.tarih, gonderildi:false, olusturan:ben, kaynakZiyaretId:ziyaretId
-      }));
-      depoBildirimleri.push(...eklenenler);
-      const depoBasarili = await yaz('depoBildirimleri', depoBildirimleri);
-      if(!depoBasarili){
-        // Ziyaret kaydedildi ama depo bildirimi gitmedi — sessiz kalırsak Cumhur
-        // bu kitapları hiç görmez. Yerel listeyi geri alıp kullanıcıyı uyarıyoruz.
-        const eklenenIdler=new Set(eklenenler.map(x=>x.id));
-        depoBildirimleri=depoBildirimleri.filter(d=>!eklenenIdler.has(d.id));
-        alert('Ziyaret kaydedildi, ancak kitaplar depoya bildirilemedi.\n\nDepoya Bildir sekmesinden elle ekleyebilirsin.');
-      }
-    }
-  }
+  // NOT: Ziyarette gösterilen kitaplar depoya BİLDİRİLMEZ. Ziyaret kaydı görüşmeden
+  // sonra girildiği için, buradan gidecek bir bildirim Cumhur'a iş bittikten sonra
+  // ulaşırdı. Numune talebi yalnızca "Depoya Bildir" sekmesinden, ziyaretten önce
+  // elle yapılır.
 
   duzenlenenZiyaret=null; secilenKitaplar=[]; secilenCiz(); kapat('zForm');
   // Kaydedilen ziyaret görünsün: klasörü aç, aktif aramayı temizle
@@ -2411,7 +2408,7 @@ async function depoEkle(){
   if(!depoSecilenKitaplar.length){ alert('En az bir kitap seç.'); return false; }
   const tarih=new Date().toISOString().slice(0,10);
   depoSecilenKitaplar.forEach(kitapId=>{
-    depoBildirimleri.push({id:yeniId(), okulAdi, kitapId, tarih, gonderildi:false, olusturan:ben, kaynakZiyaretId:null});
+    depoBildirimleri.push({id:yeniId(), okulAdi, kitapId, tarih, gonderildi:false, olusturan:ben, kaynakZiyaretId:null, adet:null, tur:'Numune'});
   });
   const basarili=await yaz('depoBildirimleri', depoBildirimleri);
   depoFormTemizle(); depoCiz();
@@ -2424,13 +2421,16 @@ async function depoBildirimSil(id){
   depoCiz();
 }
 function depoCiz(){
-  // Aynı ziyaretten (kaynakZiyaretId) gelen kitaplar tek bir grup/kart olarak gösterilir —
-  // ileride "her ziyaret = 1 mail" mantığı buradaki gruplamayı kullanacak.
-  // Manuel eklenen kayıtlar (kaynakZiyaretId=null) her biri kendi başına bir grup sayılır.
+  // Gruplama: tür + okul + tarih. Tek bir "Depoya bildir" işleminde oluşan kayıtlar
+  // bu üçünü paylaştığı için tek kart olarak görünür — Cumhur parça parça değil,
+  // o okula ait bütün talebi bir arada görür.
+  // Numune (Depoya Bildir sekmesinden, ziyaret öncesi) ile Sipariş (Seçilen'den,
+  // adetli) kayıtları asla aynı kartta birleşmez.
   const gruplar=new Map();
   depoBildirimleri.forEach(kayit=>{
-    const anahtar = kayit.kaynakZiyaretId!=null ? ('z'+kayit.kaynakZiyaretId) : ('m'+kayit.id);
-    if(!gruplar.has(anahtar)) gruplar.set(anahtar, {okulAdi:kayit.okulAdi, tarih:kayit.tarih, kayitlar:[]});
+    const tur = kayit.tur || 'Numune';
+    const anahtar = `${tur}|${kayit.okulAdi}|${kayit.tarih}`;
+    if(!gruplar.has(anahtar)) gruplar.set(anahtar, {tur, okulAdi:kayit.okulAdi, tarih:kayit.tarih, kayitlar:[]});
     gruplar.get(anahtar).kayitlar.push(kayit);
   });
   const gruplarDizi=[...gruplar.values()].sort((a,b)=>b.tarih.localeCompare(a.tarih));
@@ -2438,24 +2438,29 @@ function depoCiz(){
   depoListe.innerHTML = gruplarDizi.length ? gruplarDizi.map(g=>{
     const tarihStr=tarihFormatla(g.tarih);
     const hepsiGonderildi = g.kayitlar.every(k=>k.gonderildi);
+    const siparisMi = g.tur==='Sipariş';
     const kitapEtiketleri = g.kayitlar.map(kayit=>{
       const k=KITAPLAR.find(x=>x.id===kayit.kitapId);
-      return `<span class="tag">${esc(k?k.ad:'Silinmiş kitap')}</span>`;
+      const adetMetni = kayit.adet!=null ? ` (${kayit.adet})` : '';
+      return `<span class="tag">${esc(k?k.ad:'Silinmiş kitap')}${adetMetni}</span>`;
     }).join('');
     const silButonlari = g.kayitlar.map(kayit=>{
       const k=KITAPLAR.find(x=>x.id===kayit.kitapId);
       const etiket = g.kayitlar.length>1 ? `Sil: ${esc(k?k.ad:'Silinmiş kitap')}` : 'Sil';
       return `<button class="btn link" onclick="depoBildirimSil(${kayit.id})">${etiket}</button>`;
     }).join('');
+    const toplamAdet = g.kayitlar.reduce((t,k)=>t+(k.adet||0),0);
     return `<article class="rec">
       <div class="rec-h"><h4>${esc(g.okulAdi)}</h4><span class="barcode">${esc(tarihStr)}</span></div>
       <div class="tags">
+        <span class="tag ${siparisMi?'o':'g'}">${siparisMi?'Sipariş':'Numune'}</span>
+        ${siparisMi&&toplamAdet?`<span class="tag">toplam ${toplamAdet} adet</span>`:''}
         ${kitapEtiketleri}
-        <span class="tag ${hepsiGonderildi?'g':''}">${hepsiGonderildi?'Depoya bildirildi':'Bildirilmeyi bekliyor'}</span>
+        <span class="tag ${hepsiGonderildi?'g':''}">${hepsiGonderildi?'Hazırlandı':'Bekliyor'}</span>
       </div>
       <div class="acts" style="margin-top:11px">${silButonlari}</div>
     </article>`;
-  }).join('') : `<div class="empty"><b>Henüz bildirim yok</b><p>Depoya hazırlanması için bir okul ve kitap seç, "Okeyle" ile gönder.</p></div>`;
+  }).join('') : `<div class="empty"><b>Henüz bildirim yok</b><p>Ziyaret öncesi numune için yukarıdaki formu kullan. Sipariş bildirimleri "Seçilen" sekmesinden gelir.</p></div>`;
 }
 
 /* ---------- Yazar Etkinlikleri ---------- */
@@ -2607,7 +2612,7 @@ async function secimEkle(){
   const tarih=secimTarih.value, hesapId=secimHesapSeciliId, donem=secimDonem.value;
   secimSecilenKitaplar.forEach(kitapId=>{
     const adet = secimKitapAdetleri[kitapId] ?? null;
-    secimler.push({id:yeniId(), ziyaretId:null, hesapId, kitapId, tarih, donem, satildi:false, adet, not:''});
+    secimler.push({id:yeniId(), ziyaretId:null, hesapId, kitapId, tarih, donem, satildi:false, adet, not:'', depoyaBildirildi:false});
   });
   const basarili=await yaz('secimler', secimler);
   secimKitapAdetleri={};
@@ -2632,6 +2637,92 @@ function secimAramaTemizle(){
   if(el){ el.value=''; el.focus(); }
   secimCiz();
 }
+/* Depoya bildirilmeyi bekleyen seçimler, OKUL BAZINDA gruplanıp listenin üstünde
+   gösterilir. Depo işi okul bazlı yürüdüğü için (bir okulun siparişi tek pakette
+   çıkar), tek tıkla o okulun bekleyen tüm kitapları birlikte gönderilir.
+   Daha önce bildirilmiş kayıtlar burada görünmez — aynı okula tekrar gidilip yeni
+   kitap seçilirse, sadece YENİ olanlar gider, eskiler tekrar gönderilmez. */
+function secimBekleyenlerCiz(){
+  const kap=document.getElementById('secimBekleyenler');
+  if(!kap) return;
+  const bekleyenler=secimler.filter(s=>!s.depoyaBildirildi);
+  if(!bekleyenler.length){ kap.innerHTML=''; return; }
+  const gruplar=new Map();
+  bekleyenler.forEach(s=>{
+    if(!gruplar.has(s.hesapId)) gruplar.set(s.hesapId, []);
+    gruplar.get(s.hesapId).push(s);
+  });
+  const satirlar=[...gruplar.entries()].map(([hesapId, kayitlar])=>{
+    const h=hesaplar.find(x=>x.id===hesapId);
+    const okulAdi = h ? `${esc(h.ad)}${h.ilce||h.il?` — ${esc(h.ilce||h.il)}`:''}` : 'Silinmiş okul';
+    const toplamAdet=kayitlar.reduce((t,s)=>t+(s.adet||0),0);
+    // Bekleyenler arasında 14 günden eski kayıt varsa uyar — unutulmuş olabilir
+    const tarihler=kayitlar.map(s=>s.tarih).filter(Boolean).sort();
+    let eskiUyari='';
+    if(tarihler.length){
+      const enEski=tarihler[0];
+      const [y,m,g]=enEski.split('-').map(Number);
+      const farkGun=Math.round((new Date().setHours(0,0,0,0)-new Date(y,m-1,g))/86400000);
+      if(farkGun>=14) eskiUyari=` · en eski kayıt ${g}.${String(m).padStart(2,'0')}.${y}`;
+    }
+    return `<div class="bekleyen-satir">
+      <div>
+        <b>${okulAdi}</b>
+        <div class="d">${kayitlar.length} kitap${toplamAdet?` · toplam ${toplamAdet} adet`:''}${eskiUyari}</div>
+      </div>
+      <button class="btn sm" onclick="butonlaKaydet(this,()=>secimDepoyaBildir(${hesapId}))">Depoya bildir</button>
+    </div>`;
+  }).join('');
+  kap.innerHTML=`<div class="bekleyen-kutu">
+    <div class="sub-h" style="margin-bottom:10px">Depoya bildirilmeyi bekleyen</div>
+    ${satirlar}
+  </div>`;
+}
+async function secimDepoyaBildir(hesapId){
+  const h=hesaplar.find(x=>x.id===hesapId);
+  const bekleyenler=secimler.filter(s=>s.hesapId===hesapId && !s.depoyaBildirildi);
+  if(!bekleyenler.length) return false;
+  const ozet=bekleyenler
+    .slice()
+    .sort((a,b)=>(a.tarih||'').localeCompare(b.tarih||''))
+    .map(s=>{
+      const k=KITAPLAR.find(x=>x.id===s.kitapId);
+      // Tarih de yazılıyor: unutulup bekleyen eski bir kayıt varsa, göndermeden
+      // önce fark edilsin (aradan geçen sürede okul fikrini değiştirmiş olabilir).
+      const t = s.tarih ? (()=>{ const [y,m,g]=s.tarih.split('-'); return `${g}.${m}.${y}`; })() : '';
+      return `• ${t}  ${k?k.ad:'Silinmiş kitap'}${s.adet!=null?` — ${s.adet} adet`:''}`;
+    }).join('\n');
+  if(!confirm(`"${h?h.ad:'Bu okul'}" için aşağıdaki kitaplar depoya SİPARİŞ olarak bildirilecek:\n\n${ozet}\n\nOnaylıyor musun?`)) return false;
+
+  const tarih=new Date().toISOString().slice(0,10);
+  const yeniler=bekleyenler.map(s=>({
+    id:yeniId(), okulAdi:(h?h.ad:''), kitapId:s.kitapId, tarih,
+    gonderildi:false, olusturan:ben, kaynakZiyaretId:null,
+    adet:s.adet, tur:'Sipariş'
+  }));
+  depoBildirimleri.push(...yeniler);
+  const bildirimOk=await yaz('depoBildirimleri', depoBildirimleri);
+  if(!bildirimOk){
+    const idler=new Set(yeniler.map(x=>x.id));
+    depoBildirimleri=depoBildirimleri.filter(d=>!idler.has(d.id));
+    return false;
+  }
+  // Bildirim yazıldı; şimdi seçimleri "bildirildi" olarak işaretle.
+  // Bu adım başarısız olursa bildirim depoda DURUYOR ama kayıtlar işaretsiz kalır —
+  // kullanıcı tekrar gönderirse mükerrer sipariş oluşur, o yüzden net uyarıyoruz.
+  const bekleyenIdler=new Set(bekleyenler.map(s=>s.id));
+  const oncekiSecimler=[...secimler];
+  secimler=secimler.map(s=>bekleyenIdler.has(s.id)?{...s, depoyaBildirildi:true}:s);
+  const isaretOk=await yaz('secimler', secimler);
+  if(!isaretOk){
+    secimler=oncekiSecimler;
+    alert('Kitaplar depoya bildirildi, ancak kayıtlar "bildirildi" olarak işaretlenemedi.\n\nTekrar "Depoya bildir" deme — aynı sipariş iki kez gider. Sayfayı yenileyip kontrol et.');
+    secimCiz();
+    return false;
+  }
+  secimCiz();
+  return true;
+}
 function secimCiz(){
   // Serbest arama; okul adı/ilçesi, kitap adı, yazar, dönem ve not üzerinde çalışır.
   // Eski "okula göre filtrele" kutusunun yerini aldı — hem daha az yer kaplıyor
@@ -2652,6 +2743,7 @@ function secimCiz(){
   const sayiEl=document.getElementById('secimKlasorSayi');
   if(sayiEl) sayiEl.textContent=s.length;
   secimKlasorUygula();
+  secimBekleyenlerCiz();
   secilenListe.innerHTML = s.length ? s.map(kayit=>{
     const k=KITAPLAR.find(x=>x.id===kayit.kitapId);
     const h=hesaplar.find(x=>x.id===kayit.hesapId);
@@ -2660,6 +2752,7 @@ function secimCiz(){
       <div class="rec-h"><h4>${esc(k?k.ad:'Silinmiş kitap')}</h4></div>
       <div class="tags">
         <span class="tag">${esc(h?h.ad:'Silinmiş okul')}${h&&(h.ilce||h.il)?` — ${esc(h.ilce||h.il)}`:''}</span>
+        ${kayit.depoyaBildirildi?`<span class="tag g">Depoya bildirildi</span>`:`<span class="tag">Depo: bekliyor</span>`}
         ${h&&h.kademe&&h.kademe.length?`<span class="tag g">${esc(h.kademe.join(', '))}</span>`:''}
         ${kayit.donem?`<span class="tag o">${esc(kayit.donem)}</span>`:''}
         ${h&&h.adres?`<span class="tag o">${esc(h.adres)}</span>`:''}
