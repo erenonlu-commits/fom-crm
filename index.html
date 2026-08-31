@@ -1026,8 +1026,8 @@ function hesapToDB(h){ return {id:h.id, ad:h.ad, tur:h.tur, ozel:h.ozel||null, k
 function ziyaretFromDB(r){ return {id:r.id, hesapId:r.hesap_id, tarih:r.tarih, kademe:r.kademe||'', gorusmeTuru:r.gorusme_turu||'', kisi:r.kisi||'', not:r.aciklama||'', kitaplar:r.kitaplar||[], ekleyen:r.ekleyen||'', duzenleyen:r.duzenleyen||''}; }
 function ziyaretToDB(z){ return {id:z.id, hesap_id:z.hesapId, tarih:z.tarih, kademe:z.kademe||null, gorusme_turu:z.gorusmeTuru||null, kisi:z.kisi||null, aciklama:z.not||null, kitaplar:z.kitaplar||[], ekleyen:z.ekleyen||null, duzenleyen:z.duzenleyen||null}; }
 
-function secimFromDB(r){ return {id:r.id, ziyaretId:r.ziyaret_id, hesapId:r.hesap_id, kitapId:r.kitap_id, tarih:r.tarih, donem:r.donem||'', satildi:!!r.satildi, adet:(r.adet==null?null:r.adet), not:r.aciklama||'', depoyaBildirildi:!!r.depoya_bildirildi}; }
-function secimToDB(s){ return {id:s.id, ziyaret_id:s.ziyaretId??null, hesap_id:s.hesapId, kitap_id:s.kitapId, tarih:s.tarih, donem:s.donem||null, satildi:!!s.satildi, adet:(s.adet==null?null:s.adet), aciklama:s.not||'', depoya_bildirildi:!!s.depoyaBildirildi}; }
+function secimFromDB(r){ return {id:r.id, ziyaretId:r.ziyaret_id, hesapId:r.hesap_id, kitapId:r.kitap_id, tarih:r.tarih, donem:r.donem||'', adet:(r.adet==null?null:r.adet), not:r.aciklama||'', depoyaBildirildi:!!r.depoya_bildirildi}; }
+function secimToDB(s){ return {id:s.id, ziyaret_id:s.ziyaretId??null, hesap_id:s.hesapId, kitap_id:s.kitapId, tarih:s.tarih, donem:s.donem||null, adet:(s.adet==null?null:s.adet), aciklama:s.not||'', depoya_bildirildi:!!s.depoyaBildirildi}; }
 function depoBildirimiFromDB(r){ return {id:r.id, okulAdi:r.okul_adi, kitapId:r.kitap_id, tarih:r.tarih, gonderildi:!!r.gonderildi, olusturan:r.olusturan||'', kaynakZiyaretId:r.kaynak_ziyaret_id??null, adet:(r.adet==null?null:r.adet), tur:r.tur||'Numune'}; }
 function depoBildirimiToDB(d){ return {id:d.id, okul_adi:d.okulAdi, kitap_id:d.kitapId, tarih:d.tarih, gonderildi:!!d.gonderildi, olusturan:d.olusturan||'', kaynak_ziyaret_id:d.kaynakZiyaretId??null, adet:(d.adet==null?null:d.adet), tur:d.tur||'Numune'}; }
 function yazarEtkinligiFromDB(r){ return {id:r.id, etkinlikTuru:r.etkinlik_turu||'', yazar:r.yazar||'', eser:r.eser||'', sinif:r.sinif||'', etkinlikSekli:r.etkinlik_sekli||'', tarih:r.tarih, saat:r.saat||'', kurum:r.kurum||'', sehir:r.sehir||'', olusturan:r.olusturan||''}; }
@@ -1169,7 +1169,7 @@ let ben=null, filtre={q:'',sev:null,tur:''}, ilSecili=null, secilenKitaplar=[],
     duzenlenenHesap=null, duzenlenenKitap=null, duzenlenenZiyaret=null,
     kisiHesapId=null, duzenlenenKisi=null, zHesapSeciliId=null, zGorusmeTuruSecili='Yüz yüze',
     secimHesapSeciliId=null, secimSecilenKitaplar=[], secimKitapAdetleri={},
-    depoSecilenKitaplar=[], depoBildirimleri=[], acikHesaplar=new Set(), acikZiyaretler=new Set(),
+    depoSecilenKitaplar=[], depoBildirimleri=[], acikHesaplar=new Set(), acikZiyaretler=new Set(), acikSecimler=new Set(),
     yazarEtkinlikleri=[], duzenlenenYazarEtkinlik=null;
 const KADEME_SEV={'Anaokulu':[0],'İlkokul':[1,2,3,4],'Ortaokul':[5,6,7,8],'Lise':[9]};
 
@@ -2612,7 +2612,7 @@ async function secimEkle(){
   const tarih=secimTarih.value, hesapId=secimHesapSeciliId, donem=secimDonem.value;
   secimSecilenKitaplar.forEach(kitapId=>{
     const adet = secimKitapAdetleri[kitapId] ?? null;
-    secimler.push({id:yeniId(), ziyaretId:null, hesapId, kitapId, tarih, donem, satildi:false, adet, not:'', depoyaBildirildi:false});
+    secimler.push({id:yeniId(), ziyaretId:null, hesapId, kitapId, tarih, donem, adet, not:'', depoyaBildirildi:false});
   });
   const basarili=await yaz('secimler', secimler);
   secimKitapAdetleri={};
@@ -2631,6 +2631,11 @@ function secimKlasorUygula(){
   if(!b||!i) return;
   i.style.display = secimKlasorAcik?'block':'none';
   b.classList.toggle('acik', secimKlasorAcik);
+}
+function secimDetayToggle(id){
+  if(acikSecimler.has(id)) acikSecimler.delete(id);
+  else acikSecimler.add(id);
+  secimCiz();
 }
 function secimAramaTemizle(){
   const el=document.getElementById('secimAra');
@@ -2748,11 +2753,11 @@ function secimCiz(){
     const k=KITAPLAR.find(x=>x.id===kayit.kitapId);
     const h=hesaplar.find(x=>x.id===kayit.hesapId);
     const tarihIpucu=tarihFormatla(kayit.tarih,true);
-    return `<article class="rec">
-      <div class="rec-h"><h4>${esc(k?k.ad:'Silinmiş kitap')}</h4></div>
-      <div class="tags">
-        <span class="tag">${esc(h?h.ad:'Silinmiş okul')}${h&&(h.ilce||h.il)?` — ${esc(h.ilce||h.il)}`:''}</span>
-        ${kayit.depoyaBildirildi?`<span class="tag g">Depoya bildirildi</span>`:`<span class="tag">Depo: bekliyor</span>`}
+    const acikMi=acikSecimler.has(kayit.id);
+    // Kapalıyken sadece kimlik ve durum bilgisi görünür; tarih/adet/not/sil gibi
+    // düzenleme alanları karta tıklanınca açılır — liste uzayınca kalabalık olmasın.
+    const detay = acikMi ? `
+      <div class="tags" style="margin-top:8px">
         ${h&&h.kademe&&h.kademe.length?`<span class="tag g">${esc(h.kademe.join(', '))}</span>`:''}
         ${kayit.donem?`<span class="tag o">${esc(kayit.donem)}</span>`:''}
         ${h&&h.adres?`<span class="tag o">${esc(h.adres)}</span>`:''}
@@ -2768,15 +2773,21 @@ function secimCiz(){
             onchange="secimAlanKaydet(${kayit.id},'adet',this.value===''?null:Number(this.value))">
         </div>
       </div>
-      <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-weight:600;font-size:14px">
-        <input type="checkbox" ${kayit.satildi?'checked':''} onchange="secimSatildiTikle(${kayit.id},this.checked)">
-        Satıldı
-      </label>
-      <textarea placeholder="Not…" style="margin-top:9px;min-height:60px"
+      <textarea placeholder="Not…" style="margin-top:12px;min-height:60px"
         onblur="secimNotKaydet(${kayit.id},this.value)">${esc(kayit.not)}</textarea>
       <div class="acts" style="margin-top:11px">
         <button class="btn link" onclick="secimSil(${kayit.id})">Sil</button>
+      </div>` : '';
+    return `<article class="rec">
+      <div class="rec-h" style="cursor:pointer" onclick="secimDetayToggle(${kayit.id})">
+        <h4>${esc(k?k.ad:'Silinmiş kitap')}</h4>
+        <span class="price">${kayit.adet==null?'—':esc(String(kayit.adet))+' adet'}</span>
       </div>
+      <div class="tags">
+        <span class="tag">${esc(h?h.ad:'Silinmiş okul')}${h&&(h.ilce||h.il)?` — ${esc(h.ilce||h.il)}`:''}</span>
+        ${kayit.depoyaBildirildi?`<span class="tag g">Depoya bildirildi</span>`:`<span class="tag">Depo: bekliyor</span>`}
+      </div>
+      ${detay}
     </article>`;
   }).join('') : (q
     ? `<div class="empty"><b>Eşleşen kayıt yok</b><p>Aramayı kısaltmayı dene.</p></div>`
@@ -2784,10 +2795,6 @@ function secimCiz(){
 }
 async function secimAlanKaydet(id, alan, deger){
   secimler = secimler.map(s=>s.id===id?{...s,[alan]:deger}:s);
-  await yaz('secimler', secimler);
-}
-async function secimSatildiTikle(id, deger){
-  secimler = secimler.map(s=>s.id===id?{...s,satildi:deger}:s);
   await yaz('secimler', secimler);
 }
 async function secimNotKaydet(id, deger){
@@ -2890,7 +2897,6 @@ function secilenExcelIndir(){
       'Adet': s.adet??'',
       'Dönem': s.donem||'',
       'Tarih': s.tarih,
-      'Satıldı': s.satildi?'Evet':'Hayır',
       'Not': s.not||''
     };
   });
@@ -2958,7 +2964,7 @@ function raporKitabaGoreAra(){
   raporKitabaGoreSonuc.innerHTML = eslesenKitaplar.map(k=>{
     let secenler=[];
     secimler.forEach(s=>{
-      if(s.kitapId!==k.id || !s.satildi) return;
+      if(s.kitapId!==k.id) return;
       if(uygunHesap && !uygunHesap.has(s.hesapId)) return;
       const h=hesaplar.find(x=>x.id===s.hesapId);
       const okulAdi = h ? `${h.ad}${h.ilce||h.il?` — ${h.ilce||h.il}`:''}` : 'Silinmiş hesap';
