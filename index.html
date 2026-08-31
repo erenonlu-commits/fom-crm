@@ -621,6 +621,12 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
       </div>
 
       <div id="hesapKlasorIcerik" style="display:none">
+        <div class="search">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="hesapAra" type="search" placeholder="Okul adı, ilçe, kişi… ara" autocomplete="off" oninput="hesapCiz(true)">
+          <button class="clr" id="hesapAraClr" onclick="hesapAramaTemizle()" aria-label="Aramayı temizle">×</button>
+        </div>
+
         <div class="frow" id="ilFiltreWrap" style="display:none">
           <div class="flabel">İle göre</div>
           <div class="ladder" id="ilFiltre"></div>
@@ -689,12 +695,26 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
         </div>
       </div>
 
-      <div class="frow" id="ziyaretOkulFiltreWrap" style="display:none">
-        <div class="flabel">Okula göre</div>
-        <div class="ladder" id="ziyaretOkulFiltre"></div>
+      <div class="klasor" id="ziyaretKlasorBaslik" onclick="ziyaretKlasorToggle()">
+        <span class="klasor-ok">▸</span>
+        <span class="klasor-ad">Ziyaretler</span>
+        <span class="klasor-sayi" id="ziyaretKlasorSayi">0</span>
       </div>
 
-      <div id="ziyaretListe"></div>
+      <div id="ziyaretKlasorIcerik" style="display:none">
+        <div class="search">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="ziyaretAra" type="search" placeholder="Okul, kişi, not… ara" autocomplete="off" oninput="ziyaretCiz(true)">
+          <button class="clr" id="ziyaretAraClr" onclick="ziyaretAramaTemizle()" aria-label="Aramayı temizle">×</button>
+        </div>
+
+        <div class="frow" id="ziyaretOkulFiltreWrap" style="display:none">
+          <div class="flabel">Okula göre</div>
+          <div class="ladder" id="ziyaretOkulFiltre"></div>
+        </div>
+
+        <div id="ziyaretListe"></div>
+      </div>
     </section>
 
     <!-- SEÇİLEN KİTAPLAR -->
@@ -746,17 +766,21 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
         </div>
       </div>
 
-      <div class="f" id="secimFiltreWrap" style="max-width:420px">
-        <label for="secimFiltreArama">Okula göre filtrele</label>
-        <div style="display:flex;gap:8px">
-          <input id="secimFiltreArama" type="text" placeholder="Okul adı yaz…" autocomplete="off"
-                 oninput="secimFiltreAra()" onfocus="secimFiltreAra()" onkeydown="oneriKlavye(event,secimFiltreOneri,this)" style="flex:1">
-          <button type="button" class="btn ghost sm" onclick="secimFiltreTemizle()">Temizle</button>
-        </div>
-        <div class="picker" id="secimFiltreOneri" style="display:none"></div>
+      <div class="klasor" id="secimKlasorBaslik" onclick="secimKlasorToggle()">
+        <span class="klasor-ok">▸</span>
+        <span class="klasor-ad">Seçilen kayıtlar</span>
+        <span class="klasor-sayi" id="secimKlasorSayi">0</span>
       </div>
 
-      <div id="secilenListe"></div>
+      <div id="secimKlasorIcerik" style="display:none">
+        <div class="search">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="secimAra" type="search" placeholder="Okul, kitap, yazar, dönem… ara" autocomplete="off" oninput="secimCiz()">
+          <button class="clr" id="secimAraClr" onclick="secimAramaTemizle()" aria-label="Aramayı temizle">×</button>
+        </div>
+
+        <div id="secilenListe"></div>
+      </div>
     </section>
 
     <!-- DEPOYA BİLDİR -->
@@ -1130,7 +1154,7 @@ async function katalogKaydet(){
 let ben=null, filtre={q:'',sev:null,tur:''}, ilSecili=null, secilenKitaplar=[],
     duzenlenenHesap=null, duzenlenenKitap=null, duzenlenenZiyaret=null,
     kisiHesapId=null, duzenlenenKisi=null, zHesapSeciliId=null, zGorusmeTuruSecili='Yüz yüze',
-    secimHesapSeciliId=null, secimSecilenKitaplar=[], secimFiltreHesapId=null, secimKitapAdetleri={},
+    secimHesapSeciliId=null, secimSecilenKitaplar=[], secimKitapAdetleri={},
     depoSecilenKitaplar=[], depoBildirimleri=[], acikHesaplar=new Set(), acikZiyaretler=new Set(),
     yazarEtkinlikleri=[], duzenlenenYazarEtkinlik=null;
 const KADEME_SEV={'Anaokulu':[0],'İlkokul':[1,2,3,4],'Ortaokul':[5,6,7,8],'Lise':[9]};
@@ -1615,9 +1639,11 @@ async function hesapKaydet(){
   ['hAd','hAdres','hNot','hKisiAd','hKisiGorev','hKisiTel','hKisiMail'].forEach(i=>document.getElementById(i).value='');
   document.querySelectorAll('.kdm').forEach(c=>c.checked=false);
   ilDoldur();
-  // Kaydedilen hesabın görünür olması için klasörü aç — kapalıyken kullanıcı
-  // kaydın gerçekten eklenip eklenmediğini göremez.
+  // Kaydedilen hesabın görünür olması için klasörü aç ve aramayı temizle —
+  // aksi halde kullanıcı, aktif bir arama yüzünden yeni kaydını göremeyebilir.
   hesapKlasorAcik=true;
+  const araEl=document.getElementById('hesapAra');
+  if(araEl) araEl.value='';
   kapat('hForm'); hesapCiz();
   if(!basarili) return false;
   return duzenlemeMi ? 'guncellendi' : true;
@@ -1652,10 +1678,6 @@ async function hesapSil(id){
     zHesapSeciliId=null; zHesapArama.value=''; zKademeDoldur(); zKisiDoldur();
   }
   if(ziyaretOkulSecili===id) ziyaretOkulSecili=null;
-  if(typeof secimFiltreHesapId!=='undefined' && secimFiltreHesapId===id){
-    secimFiltreHesapId=null;
-    if(typeof secimFiltreArama!=='undefined' && secimFiltreArama) secimFiltreArama.value='';
-  }
 }
 function kisiFormAc(hid,kid){
   kisiHesapId=hid; duzenlenenKisi=kid??null;
@@ -1722,8 +1744,22 @@ function hesapCiz(korunanIl){
     ilFiltre.innerHTML = `<button aria-pressed="${ilSecili?'false':'true'}" onclick="ilSec(null,this)">Hepsi</button>`+
       iller.map(i=>`<button aria-pressed="${ilSecili===i?'true':'false'}" onclick="ilSec('${esc(i)}',this)">${esc(i)} (${hesaplar.filter(h=>h.il===i).length})</button>`).join('');
   }
-  const liste = ilSecili?hesaplar.filter(h=>h.il===ilSecili):hesaplar;
-  // Klasör başlığındaki sayı, o an filtreye göre görünen hesap sayısını gösterir
+  // Önce il filtresi, sonra metin araması uygulanır.
+  // Arama; okul adı, tür, kademe, il/ilçe, adres ve kayıtlı kişilerin
+  // adı/görevi üzerinde çalışır — "Bakırköy" ya da "Ayşe" yazarak da bulunabilsin.
+  let liste = ilSecili?hesaplar.filter(h=>h.il===ilSecili):hesaplar;
+  const aramaEl=document.getElementById('hesapAra');
+  const q = aramaEl ? norm(aramaEl.value.trim()) : '';
+  if(q){
+    liste = liste.filter(h=>{
+      const kisiMetni=(h.kisiler||[]).map(k=>`${k.ad||''} ${k.gorev||''}`).join(' ');
+      return norm([h.ad,h.tur,h.ozel,...(h.kademe||[]),h.il,h.ilce,h.adres,kisiMetni]
+        .filter(Boolean).join(' ')).includes(q);
+    });
+  }
+  const clrEl=document.getElementById('hesapAraClr');
+  if(clrEl) clrEl.classList.toggle('on', !!q);
+  // Klasör başlığındaki sayı, o an görünen hesap sayısını gösterir
   const sayiEl=document.getElementById('hesapKlasorSayi');
   if(sayiEl) sayiEl.textContent=liste.length;
   hesapKlasorUygula();
@@ -1761,12 +1797,19 @@ function hesapCiz(korunanIl){
       </div>
       ${detay}
     </article>`;
-  }).join('') : `<div class="empty"><b>Henüz hesap yok</b><p>İlk okulu veya dağıtımcıyı ekleyerek başla.</p></div>`;
+  }).join('') : (q
+    ? `<div class="empty"><b>Eşleşen hesap yok</b><p>Aramayı kısaltmayı ya da il filtresini kaldırmayı dene.</p></div>`
+    : `<div class="empty"><b>Henüz hesap yok</b><p>İlk okulu veya dağıtımcıyı ekleyerek başla.</p></div>`);
 }
 /* Hesap listesi, uzayınca sayfayı doldurmasın diye açılır kapanır bir klasörde.
    Açık/kapalı durumu oturum boyunca hatırlanır — sekmeler arası gezerken
    her seferinde tekrar açmak gerekmesin. */
 let hesapKlasorAcik=false;
+function hesapAramaTemizle(){
+  const el=document.getElementById('hesapAra');
+  if(el){ el.value=''; el.focus(); }
+  hesapCiz(true);
+}
 function hesapKlasorToggle(){
   hesapKlasorAcik=!hesapKlasorAcik;
   hesapKlasorUygula();
@@ -2085,7 +2128,12 @@ async function ziyaretKaydet(){
     }
   }
 
-  duzenlenenZiyaret=null; secilenKitaplar=[]; secilenCiz(); kapat('zForm'); ziyaretCiz();
+  duzenlenenZiyaret=null; secilenKitaplar=[]; secilenCiz(); kapat('zForm');
+  // Kaydedilen ziyaret görünsün: klasörü aç, aktif aramayı temizle
+  ziyaretKlasorAcik=true;
+  const zAraEl=document.getElementById('ziyaretAra');
+  if(zAraEl) zAraEl.value='';
+  ziyaretCiz();
   if(!basarili) return false;
   return duzenlemeMi ? 'guncellendi' : true;
 }
@@ -2102,6 +2150,19 @@ function ziyaretOkulSec(id,el){
   el.setAttribute('aria-pressed','true');
   ziyaretCiz(true);
 }
+let ziyaretKlasorAcik=false;
+function ziyaretKlasorToggle(){ ziyaretKlasorAcik=!ziyaretKlasorAcik; ziyaretKlasorUygula(); }
+function ziyaretKlasorUygula(){
+  const b=document.getElementById('ziyaretKlasorBaslik'), i=document.getElementById('ziyaretKlasorIcerik');
+  if(!b||!i) return;
+  i.style.display = ziyaretKlasorAcik?'block':'none';
+  b.classList.toggle('acik', ziyaretKlasorAcik);
+}
+function ziyaretAramaTemizle(){
+  const el=document.getElementById('ziyaretAra');
+  if(el){ el.value=''; el.focus(); }
+  ziyaretCiz(true);
+}
 function ziyaretCiz(korunanFiltre){
   if(!korunanFiltre){
     const okulIdleri=[...new Set(ziyaretler.map(z=>z.hesapId))];
@@ -2116,9 +2177,28 @@ function ziyaretCiz(korunanFiltre){
         return `<button aria-pressed="${ziyaretOkulSecili===h.id?'true':'false'}" onclick="ziyaretOkulSec(${h.id},this)">${esc(h.ad)}${h.ilce||h.il?` — ${esc(h.ilce||h.il)}`:''} (${n})</button>`;
       }).join('');
   }
-  const s=[...ziyaretler]
+  // Arama; okul adı/ilçesi, görüşülen kişi, görüşme türü, kademe, notlar,
+  // gösterilen kitap adları ve ekleyen kişi üzerinde çalışır.
+  const aramaEl=document.getElementById('ziyaretAra');
+  const q = aramaEl ? norm(aramaEl.value.trim()) : '';
+  let s=[...ziyaretler]
     .filter(z=>ziyaretOkulSecili===null||z.hesapId===ziyaretOkulSecili)
     .sort((a,b)=>b.tarih.localeCompare(a.tarih));
+  if(q){
+    s=s.filter(z=>{
+      const h=hesaplar.find(x=>x.id===z.hesapId);
+      const kitapAdlari=(z.kitaplar||[]).map(id=>{
+        const k=KITAPLAR.find(x=>x.id===id); return k?k.ad:'';
+      }).join(' ');
+      return norm([h?h.ad:'', h?h.ilce:'', h?h.il:'', z.kisi, z.gorusmeTuru, z.kademe, z.not, kitapAdlari, z.ekleyen]
+        .filter(Boolean).join(' ')).includes(q);
+    });
+  }
+  const clrEl=document.getElementById('ziyaretAraClr');
+  if(clrEl) clrEl.classList.toggle('on', !!q);
+  const sayiEl=document.getElementById('ziyaretKlasorSayi');
+  if(sayiEl) sayiEl.textContent=s.length;
+  ziyaretKlasorUygula();
   ziyaretListe.innerHTML = s.length ? s.map(z=>{
     const h=hesaplar.find(x=>x.id===z.hesapId);
     const kt=(z.kitaplar||[]).map(id=>{
@@ -2145,7 +2225,9 @@ function ziyaretCiz(korunanFiltre){
       </div>
       ${detay}
     </article>`;
-  }).join('') : `<div class="empty"><b>Henüz ziyaret yok</b><p>Bir okula gittikten sonra görüşmeyi buraya yaz.</p></div>`;
+  }).join('') : (q
+    ? `<div class="empty"><b>Eşleşen ziyaret yok</b><p>Aramayı kısaltmayı dene.</p></div>`
+    : `<div class="empty"><b>Henüz ziyaret yok</b><p>Bir okula gittikten sonra görüşmeyi buraya yaz.</p></div>`);
 }
 function ziyaretDetayToggle(id){
   if(acikZiyaretler.has(id)) acikZiyaretler.delete(id);
@@ -2533,14 +2615,47 @@ async function secimEkle(){
   });
   const basarili=await yaz('secimler', secimler);
   secimKitapAdetleri={};
+  // Kaydedilen kayıt görünsün: klasörü aç, aktif aramayı temizle
+  secimKlasorAcik=true;
+  const sAraEl=document.getElementById('secimAra');
+  if(sAraEl) sAraEl.value='';
   kapat('secimForm'); secimCiz();
   return basarili;
 }
 
+let secimKlasorAcik=false;
+function secimKlasorToggle(){ secimKlasorAcik=!secimKlasorAcik; secimKlasorUygula(); }
+function secimKlasorUygula(){
+  const b=document.getElementById('secimKlasorBaslik'), i=document.getElementById('secimKlasorIcerik');
+  if(!b||!i) return;
+  i.style.display = secimKlasorAcik?'block':'none';
+  b.classList.toggle('acik', secimKlasorAcik);
+}
+function secimAramaTemizle(){
+  const el=document.getElementById('secimAra');
+  if(el){ el.value=''; el.focus(); }
+  secimCiz();
+}
 function secimCiz(){
-  let s=[...secimler];
-  if(secimFiltreHesapId) s=s.filter(x=>x.hesapId===secimFiltreHesapId);
-  s=s.sort((a,b)=>b.tarih.localeCompare(a.tarih));
+  // Serbest arama; okul adı/ilçesi, kitap adı, yazar, dönem ve not üzerinde çalışır.
+  // Eski "okula göre filtrele" kutusunun yerini aldı — hem daha az yer kaplıyor
+  // hem de kitap adına göre de arama yapılabiliyor.
+  const aramaEl=document.getElementById('secimAra');
+  const q = aramaEl ? norm(aramaEl.value.trim()) : '';
+  let s=[...secimler].sort((a,b)=>b.tarih.localeCompare(a.tarih));
+  if(q){
+    s=s.filter(kayit=>{
+      const k=KITAPLAR.find(x=>x.id===kayit.kitapId);
+      const h=hesaplar.find(x=>x.id===kayit.hesapId);
+      return norm([h?h.ad:'', h?h.ilce:'', h?h.il:'', k?k.ad:'', k?k.yazar:'', kayit.donem, kayit.not]
+        .filter(Boolean).join(' ')).includes(q);
+    });
+  }
+  const clrEl=document.getElementById('secimAraClr');
+  if(clrEl) clrEl.classList.toggle('on', !!q);
+  const sayiEl=document.getElementById('secimKlasorSayi');
+  if(sayiEl) sayiEl.textContent=s.length;
+  secimKlasorUygula();
   secilenListe.innerHTML = s.length ? s.map(kayit=>{
     const k=KITAPLAR.find(x=>x.id===kayit.kitapId);
     const h=hesaplar.find(x=>x.id===kayit.hesapId);
@@ -2574,39 +2689,10 @@ function secimCiz(){
         <button class="btn link" onclick="secimSil(${kayit.id})">Sil</button>
       </div>
     </article>`;
-  }).join('') : (secimFiltreHesapId
-    ? `<div class="empty"><b>Bu okulda kayıt yok</b><p>Filtreyi temizleyip diğer kayıtları görebilirsin.</p></div>`
+  }).join('') : (q
+    ? `<div class="empty"><b>Eşleşen kayıt yok</b><p>Aramayı kısaltmayı dene.</p></div>`
     : `<div class="empty"><b>Henüz kayıt yok</b><p>"Kayıt ekle" ile bir okula gönderilen kitapları kaydet.</p></div>`);
 }
-function secimFiltreAra(){
-  const q=norm(secimFiltreArama.value.trim());
-  secimFiltreOneri.style.display='block';
-  if(q.length<2){
-    secimFiltreOneri.innerHTML=`<div class="s" style="padding:10px 12px">En az 2 harf yaz…</div>`;
-    return;
-  }
-  const r=hesaplar.filter(h=>hesapAramaMetni(h).includes(q))
-                  .sort((a,b)=>a.ad.localeCompare(b.ad,'tr')).slice(0,20);
-  secimFiltreOneri.innerHTML = r.length ? r.map(h=>`
-    <button type="button" onclick="secimFiltreSec(${h.id})">${esc(h.ad)}
-      <div class="s">${esc([h.tur,(h.kademe||[]).join(', '),h.ilce||h.il].filter(Boolean).join(' · ')||'—')}</div>
-    </button>`).join('')
-    : `<div class="s" style="padding:10px 12px">Eşleşen okul yok</div>`;
-}
-function secimFiltreSec(id){
-  const h=hesaplar.find(x=>x.id===id); if(!h)return;
-  secimFiltreHesapId=id; secimFiltreArama.value=hesapEtiket(h);
-  secimFiltreOneri.style.display='none';
-  secimCiz();
-}
-function secimFiltreTemizle(){
-  secimFiltreHesapId=null; secimFiltreArama.value='';
-  secimFiltreOneri.style.display='none';
-  secimCiz();
-}
-document.addEventListener('click',e=>{
-  if(!secimFiltreWrap || !secimFiltreWrap.contains(e.target)) { if(secimFiltreOneri) secimFiltreOneri.style.display='none'; }
-});
 async function secimAlanKaydet(id, alan, deger){
   secimler = secimler.map(s=>s.id===id?{...s,[alan]:deger}:s);
   await yaz('secimler', secimler);
@@ -2936,7 +3022,7 @@ function yedekYukle(input){
     kapat('hForm'); kapat('kForm'); kapat('zForm'); kapat('kisiForm'); kapat('secimForm');
     duzenlenenHesap=null; duzenlenenKitap=null; duzenlenenZiyaret=null; duzenlenenKisi=null; kisiHesapId=null;
     zHesapSeciliId=null; secilenKitaplar=[];
-    secimHesapSeciliId=null; secimSecilenKitaplar=[]; secimFiltreHesapId=null;
+    secimHesapSeciliId=null; secimSecilenKitaplar=[];
     KITAPLAR=p.katalog;
     hesaplar=p.hesaplar||[]; ziyaretler=p.ziyaretler||[]; secimler=p.secimler||[];
     kullanicilar=p.kullanicilar||['Pelin','Ömer'];
