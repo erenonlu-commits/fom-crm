@@ -348,6 +348,21 @@ select.tur{
   nav::-webkit-scrollbar{display:none}
   nav button{white-space:nowrap;font-size:13.5px;padding:8px 12px}
   .track i{width:9px}
+
+  /* Dar ekranda sağdaki eylemler (buton/açılır liste) sola sıkıştırıp
+     metne yer bırakmıyordu — alt alta diziliyorlar. */
+  .person{flex-direction:column;align-items:stretch;gap:8px}
+  .person > div:last-child{justify-content:flex-start!important}
+  .bekleyen-satir{flex-direction:column;align-items:stretch;gap:8px}
+  .bekleyen-satir button{width:100%}
+
+  /* Uzun kitap/okul adları kutudan taşmasın */
+  .rec h4,.klasor-ad,.person b{overflow-wrap:anywhere}
+  .tag{max-width:100%;overflow-wrap:anywhere}
+  .btn{max-width:100%;overflow-wrap:anywhere}
+
+  /* Kart başlığındaki sayı/tarih alta düşebilsin */
+  .rec-h{flex-wrap:wrap;gap:4px 12px}
 }
 
 /* ---------- görsel efektler ---------- */
@@ -1003,6 +1018,8 @@ const TR={'ı':'i','İ':'i','I':'i','ş':'s','Ş':'s','ğ':'g','Ğ':'g','ü':'u'
 const norm = s => String(s??'').replace(/[ıİIşŞğĞüÜöÖçÇâÂîÎûÛ]/g,c=>TR[c])
                     .normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* Buton/etiket metinlerini kısaltır — uzun kitap adları dar ekranda taşmasın. */
+const kisalt=(s,n=20)=>{ s=String(s??''); return s.length>n ? s.slice(0,n-1)+'…' : s; };
 /* ---------- Supabase bağlantısı ---------- */
 const SUPABASE_URL = 'https://xapbmfketbzqezvwkbub.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_NvHgGsZfl0SiAtrKA1YIuA_6g-cRxzw';
@@ -2474,8 +2491,11 @@ function depoCiz(){
     }).join('');
     const silButonlari = g.kayitlar.map(kayit=>{
       const k=KITAPLAR.find(x=>x.id===kayit.kitapId);
-      const etiket = g.kayitlar.length>1 ? `Sil: ${esc(k?k.ad:'Silinmiş kitap')}` : 'Sil';
-      return `<button class="btn link" onclick="depoBildirimSil(${kayit.id})">${etiket}</button>`;
+      const tamAd = k?k.ad:'Silinmiş kitap';
+      // Uzun kitap adları butonu dar ekranda taşırıyordu — kısaltılıp
+      // tam adı title (üzerine gelince çıkan ipucu) olarak veriliyor.
+      const etiket = g.kayitlar.length>1 ? `Sil: ${esc(kisalt(tamAd))}` : 'Sil';
+      return `<button class="btn link" title="${esc(tamAd)}" onclick="depoBildirimSil(${kayit.id})">${etiket}</button>`;
     }).join('');
     const toplamAdet = g.kayitlar.reduce((t,k)=>t+(k.adet||0),0);
     // Depo, hazırladığı talebi bu butonla işaretler. Grup bazında çalışır —
