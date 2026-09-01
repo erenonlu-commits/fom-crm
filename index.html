@@ -806,7 +806,8 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
         <h3>Yeni bildirim</h3>
         <div class="f">
           <label for="depoOkulAdi">Okul <span class="req">*</span></label>
-          <input id="depoOkulAdi" type="text" placeholder="Okul adını yaz…" autocomplete="off">
+          <input id="depoOkulAdi" type="text" list="depoOkulListesi" placeholder="Okul adını yaz…" autocomplete="off">
+          <datalist id="depoOkulListesi"></datalist>
         </div>
         <div class="f">
           <label>Kitaplar <span class="req">*</span></label>
@@ -1388,7 +1389,7 @@ async function git(v,el){
     hesaplar: ['hesaplar','ziyaretler','secimler','kitaplar'], // Dashboard 4 tablodan sayı gösteriyor, hepsi güncel olmalı
     ziyaretler: ['ziyaretler','hesaplar'],
     secilenler: ['secimler','hesaplar','kitaplar'],
-    depo: ['depoBildirimleri','kitaplar'],
+    depo: ['depoBildirimleri','kitaplar','hesaplar'],
     yazaretkinlik: ['yazarEtkinlikleri'],
     katalog: ['kitaplar'],
     raporlar: ['ziyaretler','secimler','hesaplar','kitaplar'],
@@ -1399,7 +1400,7 @@ async function git(v,el){
   if(v==='hesaplar') hesapCiz();
   if(v==='ziyaretler') ziyaretCiz();
   if(v==='secilenler') secimCiz();
-  if(v==='depo') depoCiz();
+  if(v==='depo'){ depoCiz(); depoOkulListesiDoldur(); }
   if(v==='yazaretkinlik'){ yazarEtkinlikCiz(); yeYazarListesiDoldur(); yeEserListesiDoldur(); yeKurumListesiDoldur(); }
   if(v==='raporlar') raporCiz();
   if(v==='ayarlar') ayarCiz();
@@ -2352,6 +2353,19 @@ function secimKitapAdetGuncelle(id, deger){
 }
 
 /* ---------- Depoya Bildir: bağımsız, okul kaydı gerektirmeyen bildirim formu ---------- */
+/* Depoya Bildir'deki "Okul" alanı serbest metin olarak kalır (kayıtlı olmayan bir
+   okul için de bildirim yapılabilsin), ama Hesaplar'daki okullar öneri olarak çıkar.
+   Böylece aynı okul her seferinde farklı yazılmaz ve Cumhur'un listesinde
+   "doğa koleji" ile "Doğa Koleji" ayrı ayrı görünmez.
+   Öneride ilçe de yer alır — aynı isimli şubeler ayırt edilebilsin. */
+function depoOkulListesiDoldur(){
+  const el=document.getElementById('depoOkulListesi');
+  if(!el) return;
+  const isimler=[...new Set(hesaplar.map(h=>
+    h.ad + ((h.ilce||h.il) ? ` — ${h.ilce||h.il}` : '')
+  ).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'tr'));
+  el.innerHTML = isimler.map(a=>`<option value="${esc(a)}">`).join('');
+}
 function depoKitapPanelAc(){
   depoKitapPanel.style.display='block'; depoKitapAcButon.style.display='none';
   depoKitapAra.value=''; depoKitapListesiCiz(); depoKitapAra.focus();
