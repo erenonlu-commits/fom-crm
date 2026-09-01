@@ -943,15 +943,6 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
       </div>
 
       <div class="panel">
-        <h3>Ziyaret durumları</h3>
-        <p class="lede" style="margin:-8px 0 12px">Ziyaret formundaki durum seçenekleri.</p>
-        <div id="durumListe"></div>
-        <div class="f" style="margin-top:12px"><label for="yeniDurum">Yeni durum</label>
-          <input id="yeniDurum" placeholder="Örn. Numune bırakıldı" onkeydown="if(event.key==='Enter')durumEkle()"></div>
-        <button class="btn sm" onclick="durumEkle()">Ekle</button>
-      </div>
-
-      <div class="panel">
         <h3>Hesap türleri</h3>
         <p class="lede" style="margin:-8px 0 12px">Okul dışında başka müşteri tipin varsa buraya ekle.</p>
         <div id="hesapTuruListe"></div>
@@ -984,9 +975,9 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
 
       <div class="panel">
         <h3>Sıfırlama</h3>
-        <p class="lede" style="margin:-8px 0 12px">Geri alınamaz. Önce yedek al.</p>
+        <p class="lede" style="margin:-8px 0 12px">Hesaplar, ziyaretler, seçilen kayıtlar, depo bildirimleri ve yazar etkinlikleri silinir. <b>Katalog, kullanıcılar ve hesap türleri korunur.</b> Geri alınamaz — önce yedek al.</p>
         <div class="acts">
-          <button class="btn link" onclick="hepsiniSil()">Tüm verileri sil</button>
+          <button class="btn link" onclick="hepsiniSil()">Kayıtları sıfırla</button>
         </div>
       </div>
     </section>
@@ -1102,7 +1093,7 @@ async function tabloSenkronize(tablo, dizi, toDB, idAlani='id'){
     return false;
   }
 }
-/* isim listesi tabloları (kullanicilar, durumlar, hesap_turleri) — sıralı string dizisi */
+/* isim listesi tabloları (kullanicilar, hesap_turleri) — sıralı string dizisi */
 async function stringDiziSenkronize(tablo, dizi){
   try{
     const {error:e1} = await db.from(tablo).delete().neq('ad','__yok__');
@@ -1146,7 +1137,6 @@ async function yaz(k,v){
     case 'depoBildirimleri': return await tabloSenkronize('depo_bildirimleri', v, depoBildirimiToDB);
     case 'yazarEtkinlikleri': return await tabloSenkronize('yazar_etkinlikleri', v, yazarEtkinligiToDB);
     case 'kullanicilar': return await stringDiziSenkronize('kullanicilar', v);
-    case 'durumlar': return await stringDiziSenkronize('durumlar', v);
     case 'hesapTurleri': return await stringDiziSenkronize('hesap_turleri', v);
     case 'kullaniciRolleri': return await rolleriSenkronize(v);
   }
@@ -1188,24 +1178,22 @@ let KITAPLAR=[], hesaplar=[], ziyaretler=[], secimler=[];
 let kullanicilar=['Pelin','Ömer'];
 let kullaniciRolleri={};
 function kullaniciRolu(isim){ return kullaniciRolleri[isim]==='kisitli' ? 'kisitli' : 'tam'; }
-let durumlar=['İlk görüşme','Tekrar görüşme','Karar bekliyor','Olumlu sonuçlandı','Olumsuz'];
 let hesapTurleri=['Okul','Dağıtımcı','Kitabevi'];
 
 async function uygulamayiBaslat(){
   try{
     // Büyüyen tablolar sayfalama ile çekiliyor (1000 satır sınırını aşmak için).
     // Küçük ayar tabloları (kullanıcı/durum/tür) doğrudan çekilebilir — binlerce satır olmaz.
-    const [kData,hData,zData,sData,kuRes,krRes,dRes,htRes] = await Promise.all([
+    const [kData,hData,zData,sData,kuRes,krRes,htRes] = await Promise.all([
       tumSatirlariCek('kitaplar'),
       tumSatirlariCek('hesaplar'),
       tumSatirlariCek('ziyaretler'),
       tumSatirlariCek('secimler'),
       db.from('kullanicilar').select('*').order('sira'),
       db.from('kullanici_rolleri').select('*').order('kullanici_ad'),
-      db.from('durumlar').select('*').order('sira'),
       db.from('hesap_turleri').select('*').order('sira'),
     ]);
-    for(const r of [kuRes,krRes,dRes,htRes]) if(r.error) throw r.error;
+    for(const r of [kuRes,krRes,htRes]) if(r.error) throw r.error;
 
     KITAPLAR = kData.map(kitapFromDB).filter(k=>!KALDIRILAN_BARKODLAR.includes(k.barkod));
     if(!KITAPLAR.length){
@@ -1218,7 +1206,6 @@ async function uygulamayiBaslat(){
     secimler = sData.map(secimFromDB);
     if(kuRes.data && kuRes.data.length) kullanicilar = kuRes.data.map(r=>r.ad);
     kullaniciRolleri = {}; (krRes.data||[]).forEach(r=>{ kullaniciRolleri[r.kullanici_ad]=r.rol; });
-    if(dRes.data && dRes.data.length) durumlar = dRes.data.map(r=>r.ad);
     if(htRes.data && htRes.data.length) hesapTurleri = htRes.data.map(r=>r.ad);
 
     indeksle();
@@ -1359,11 +1346,6 @@ async function veriTazele(hangiler){
       if(error) throw error;
       kullaniciRolleri = {}; data.forEach(x=>{ kullaniciRolleri[x.kullanici_ad]=x.rol; });
     },
-    durumlar: async ()=>{
-      const {data,error} = await db.from('durumlar').select('*').order('sira');
-      if(error) throw error;
-      if(data.length) durumlar = data.map(x=>x.ad);
-    },
     hesapTurleri: async ()=>{
       const {data,error} = await db.from('hesap_turleri').select('*').order('sira');
       if(error) throw error;
@@ -1392,7 +1374,7 @@ async function git(v,el){
     yazaretkinlik: ['yazarEtkinlikleri'],
     katalog: ['kitaplar'],
     raporlar: ['ziyaretler','secimler','hesaplar','kitaplar'],
-    ayarlar: ['kullanicilar','kullaniciRolleri','durumlar','hesapTurleri'],
+    ayarlar: ['kullanicilar','kullaniciRolleri','hesapTurleri'],
   };
   if(tazeleHaritasi[v]) await veriTazele(tazeleHaritasi[v]);
 
@@ -3020,11 +3002,6 @@ function ayarCiz(){
   kullaniciListe.innerHTML=kullanicilar.map((k,i)=>kullaniciSatiri(k,i)).join('')
     || `<p style="font-size:13.5px;color:var(--ink-soft)">Kullanıcı yok.</p>`;
 
-  durumListe.innerHTML=durumlar.map((d,i)=>{
-    const n=ziyaretler.filter(z=>z.durum===d).length;
-    return satir(d,`durumDuzenle(${i})`,`durumSil(${i})`, n?`${n} ziyarette kullanılıyor`:'');
-  }).join('') || `<p style="font-size:13.5px;color:var(--ink-soft)">Durum yok.</p>`;
-
   hesapTuruListe.innerHTML=hesapTurleri.map((t,i)=>{
     const n=hesaplar.filter(h=>h.tur===t).length;
     return satir(t,`hesapTuruDuzenle(${i})`,`hesapTuruSil(${i})`, n?`${n} hesap bu türde`:'');
@@ -3084,24 +3061,6 @@ async function kullaniciSil(i){
   girisCiz(); ayarCiz();
 }
 
-async function durumEkle(){
-  const d=yeniDurum.value.trim(); if(!d)return;
-  if(durumlar.some(x=>norm(x)===norm(d))){ alert('Bu durum zaten var.'); return; }
-  durumlar.push(d); await yaz('durumlar',durumlar); yeniDurum.value=''; ayarCiz();
-}
-async function durumDuzenle(i){
-  const yeni=prompt('Durum adı:',durumlar[i]); if(yeni===null)return;
-  const d=yeni.trim(); if(!d)return;
-  const eski=durumlar[i]; durumlar[i]=d; await yaz('durumlar',durumlar);
-  ziyaretler=ziyaretler.map(z=>z.durum===eski?{...z,durum:d}:z);
-  await yaz('ziyaretler',ziyaretler); ayarCiz();
-}
-async function durumSil(i){
-  if(durumlar.length<2){ alert('En az bir durum kalmalı.'); return; }
-  const n=ziyaretler.filter(z=>z.durum===durumlar[i]).length;
-  if(!confirm(`"${durumlar[i]}" silinecek.${n?` ${n} ziyarette kullanılıyor, o kayıtlarda yazılı kalır.`:''}`))return;
-  durumlar.splice(i,1); await yaz('durumlar',durumlar); ayarCiz();
-}
 
 async function hesapTuruEkle(){
   const t=yeniHesapTuru.value.trim(); if(!t)return;
@@ -3128,7 +3087,7 @@ function yedekIndir(){
   const paket={
     surum:1, tarih:new Date().toISOString(),
     katalog:KITAPLAR.map(({_s,...r})=>r),
-    hesaplar, ziyaretler, secimler, kullanicilar, kullaniciRolleri, durumlar, hesapTurleri
+    hesaplar, ziyaretler, secimler, kullanicilar, kullaniciRolleri, hesapTurleri
   };
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([JSON.stringify(paket,null,1)],{type:'application/json'}));
@@ -3154,12 +3113,12 @@ function yedekYukle(input){
     hesaplar=p.hesaplar||[]; ziyaretler=p.ziyaretler||[]; secimler=p.secimler||[];
     kullanicilar=p.kullanicilar||['Pelin','Ömer'];
     kullaniciRolleri=p.kullaniciRolleri||{};
-    durumlar=p.durumlar||durumlar; hesapTurleri=p.hesapTurleri||hesapTurleri;
+    hesapTurleri=p.hesapTurleri||hesapTurleri;
     yukleniyorMetin.textContent='Yedek Supabase\'e yükleniyor…'; yukleniyor.style.display='';
     await katalogKaydet();
     await yaz('hesaplar',hesaplar); await yaz('ziyaretler',ziyaretler); await yaz('secimler',secimler);
     await yaz('kullanicilar',kullanicilar); await yaz('kullaniciRolleri',kullaniciRolleri);
-    await yaz('durumlar',durumlar); await yaz('hesapTurleri',hesapTurleri);
+    await yaz('hesapTurleri',hesapTurleri);
     yukleniyor.style.display='none';
     input.value=''; girisCiz(); kur(); hesapCiz(); ziyaretCiz(); secimCiz(); ayarCiz();
     alert('Yedek yüklendi.');
@@ -3167,17 +3126,29 @@ function yedekYukle(input){
   r.readAsText(f);
 }
 async function hepsiniSil(){
-  if(!confirm('Katalog, hesaplar, kişiler ve ziyaretler dahil TÜM veriler silinecek — herkesin ortak Supabase veritabanından.\n\nÖnce yedek aldın mı?'))return;
+  if(!confirm('Hesaplar, kişiler, ziyaretler, seçilen kayıtlar, depo bildirimleri ve yazar etkinlikleri silinecek — herkesin ortak Supabase veritabanından.\n\nKATALOG, kullanıcılar ve hesap türleri SİLİNMEZ.\n\nÖnce yedek aldın mı?'))return;
   if(!confirm('Son onay: bu işlem geri alınamaz.'))return;
   try{
-    const tabloVeAlan=[
-      ['secimler','id'],['ziyaretler','id'],['hesaplar','id'],['kitaplar','id'],
-      ['kullanici_rolleri','kullanici_ad'],['kullanicilar','ad'],['durumlar','ad'],['hesap_turleri','ad']
+    // Sadece işlem kayıtları silinir. Katalog (kitaplar), kullanıcılar, roller,
+    // e-posta eşleştirmeleri ve hesap türleri KORUNUR — bunlar kurulum verisidir,
+    // tekrar girmek büyük emek olur.
+    // Silme sırası önemli: önce başka tablolara bağlı olan kayıtlar.
+    const silinecekler=[
+      ['secimler','id'],
+      ['depo_bildirimleri','id'],
+      ['yazar_etkinlikleri','id'],
+      ['ziyaretler','id'],
+      ['hesaplar','id'],
     ];
-    for(const [t,alan] of tabloVeAlan){
-      const sorgu = alan==='id' ? db.from(t).delete().gte('id',0) : db.from(t).delete().neq(alan,'');
-      const {error} = await sorgu;
-      if(error) throw error;
+    for(const [t,alan] of silinecekler){
+      try{
+        const {error} = await db.from(t).delete().gte(alan,0);
+        if(error) throw error;
+      }catch(e){
+        // Tablo henüz oluşturulmamış olabilir (ilgili SQL çalıştırılmadıysa) —
+        // bu, diğer tabloların temizlenmesini engellememeli.
+        console.warn('Silinemedi (tablo yok olabilir):', t, e);
+      }
     }
     location.reload();
   }catch(e){
