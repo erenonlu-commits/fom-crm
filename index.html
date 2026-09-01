@@ -815,7 +815,6 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
             <span id="depoKitapOzet">Kitap seç</span><span class="ok">▾</span>
           </button>
           <div class="acilir-panel" id="depoKitapPanel" style="display:none">
-            <input id="depoKitapAra" placeholder="Ara: ad, yazar, barkod (en az 2 harf)" autocomplete="off" oninput="depoKitapListesiCiz()">
             <div class="tikli" id="depoTikliListe"></div>
             <div class="panel-alt">
               <span id="depoTikliSayi">0 seçili</span>
@@ -2368,7 +2367,7 @@ function depoOkulListesiDoldur(){
 }
 function depoKitapPanelAc(){
   depoKitapPanel.style.display='block'; depoKitapAcButon.style.display='none';
-  depoKitapAra.value=''; depoKitapListesiCiz(); depoKitapAra.focus();
+  depoKitapListesiCiz();
 }
 function depoKitapPanelKapat(){
   depoKitapPanel.style.display='none'; depoKitapAcButon.style.display='flex';
@@ -2379,17 +2378,14 @@ function depoKitapOzetCiz(){
     ? `${depoSecilenKitaplar.length} kitap seçili — değiştir`
     : 'Kitap seç';
 }
+/* Ziyaretler ve Seçilen'deki kitap seçimiyle aynı davranış: arama şartı olmadan
+   tüm katalog alfabetik sırayla listelenir — kitabın adını bilmeyen de bulabilsin. */
 function depoKitapListesiCiz(){
-  const q=norm(depoKitapAra.value.trim());
-  if(q.length<2){
-    depoTikliListe.innerHTML=`<div class="yok">Aramak için en az 2 harf yaz</div>`;
-    depoTikliSayiCiz(); return;
-  }
-  const r=KITAPLAR.filter(k=>k._s.includes(q)).slice(0,50);
+  const r=[...KITAPLAR].sort((a,b)=>a.ad.localeCompare(b.ad,'tr'));
   depoTikliListe.innerHTML = r.length ? r.map(k=>`<label>
       <input type="checkbox" value="${k.id}" ${depoSecilenKitaplar.includes(k.id)?'checked':''} onchange="depoKitapTikle(${k.id},this.checked)">
       <span>${esc(k.ad)}<span class="s">${esc(k.yazar)} · ${esc(k.turu)} · ${esc(k.sinif)}</span></span>
-    </label>`).join('') : `<div class="yok">Eşleşen kitap yok</div>`;
+    </label>`).join('') : `<div class="yok">Katalogda kitap yok</div>`;
   depoTikliSayiCiz();
 }
 function depoTikliSayiCiz(){ depoTikliSayi.textContent=`${depoSecilenKitaplar.length} seçili`; }
