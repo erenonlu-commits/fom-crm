@@ -479,7 +479,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
     <button onclick="git('hesaplar',this)" aria-current="page">Hesaplar</button>
     <button onclick="git('ziyaretler',this)">Ziyaretler</button>
     <button onclick="git('secilenler',this)">Seçilen</button>
-    <button onclick="git('depo',this)">Depoya Bildir</button>
+    <button onclick="git('depo',this)">Depo Paneli</button>
     <button onclick="git('yazaretkinlik',this)">Yazar Etkinlikleri</button>
     <button onclick="git('katalog',this)">Katalog</button>
     <button onclick="git('raporlar',this)">Raporlar</button>
@@ -799,8 +799,8 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
 
     <!-- DEPOYA BİLDİR -->
     <section class="view" id="v-depo">
-      <h2>Depoya Bildir</h2>
-      <p class="lede">Hangi okula hangi kitaplardan hazırlanmasını istiyorsan buradan bildir — okul kaydı gerekmez.</p>
+      <h2>Depo bildirim ve onay paneli</h2>
+      <p class="lede">Ziyaret öncesi numune talebini buradan bildir. Depo, hazırladığı talepleri "Hazırlandı" olarak işaretler.</p>
 
       <div class="panel panel-form">
         <h3>Yeni bildirim</h3>
@@ -935,10 +935,13 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
         <div id="kullaniciListe"></div>
         <div class="f" style="margin-top:12px"><label for="yeniKullanici">Yeni kullanıcı</label>
           <input id="yeniKullanici" placeholder="Ad" onkeydown="if(event.key==='Enter')kullaniciEkle()"></div>
-        <label style="display:flex;align-items:center;gap:7px;font-weight:500;font-size:14px;margin-bottom:12px">
-          <input type="checkbox" id="yeniKullaniciKisitli" style="width:auto;padding:0">
-          Kısıtlı — sadece "Seçilen" sekmesini görsün
-        </label>
+        <div class="f"><label for="yeniKullaniciRol">Yetkisi</label>
+          <select id="yeniKullaniciRol">
+            <option value="tam">Tam yetkili</option>
+            <option value="kisitli">Sadece Seçilen</option>
+            <option value="depo">Sadece Depo Paneli</option>
+          </select>
+        </div>
         <button class="btn sm" onclick="kullaniciEkle()">Ekle</button>
       </div>
 
@@ -1177,7 +1180,18 @@ function yeniId(){ _idSayac = (_idSayac+1) % 1000; return Date.now()*1000 + _idS
 let KITAPLAR=[], hesaplar=[], ziyaretler=[], secimler=[];
 let kullanicilar=['Pelin','Ömer'];
 let kullaniciRolleri={};
-function kullaniciRolu(isim){ return kullaniciRolleri[isim]==='kisitli' ? 'kisitli' : 'tam'; }
+/* Kullanıcı rolleri. 'sekme' dolu ise, o kullanıcı SADECE o sekmeyi görür.
+   'kisitli' anahtarı geriye dönük uyumluluk için korundu (Zuhal'in mevcut kaydı
+   bu değerle duruyor) — anlamı "sadece Seçilen". */
+const ROLLER = {
+  tam:     {ad:'Tam yetkili',        sekme:null},
+  kisitli: {ad:'Sadece Seçilen',     sekme:'secilenler'},
+  depo:    {ad:'Sadece Depo Paneli', sekme:'depo'},
+};
+function kullaniciRolu(isim){
+  const r=kullaniciRolleri[isim];
+  return ROLLER[r] ? r : 'tam';
+}
 let hesapTurleri=['Okul','Dağıtımcı','Kitabevi'];
 
 async function uygulamayiBaslat(){
@@ -1255,14 +1269,18 @@ function gir(k){
   ben=k; sessionStorage.setItem('fom_ben',k);
   gate.style.display='none'; shell.classList.add('on'); benim.textContent=k;
   kur();
-  const kisitli = kullaniciRolu(k)==='kisitli';
+  // Rolde bir sekme tanımlıysa, kullanıcı yalnızca o sekmeyi görür.
+  const izinliSekme = ROLLER[kullaniciRolu(k)].sekme;
+  let izinliButon=null;
   document.querySelectorAll('nav button').forEach(b=>{
     const m=(b.getAttribute('onclick')||'').match(/git\('(\w+)'/);
     const hedef = m ? m[1] : '';
-    b.style.display = (kisitli && hedef!=='secilenler') ? 'none' : '';
+    const gizle = izinliSekme && hedef!==izinliSekme;
+    b.style.display = gizle ? 'none' : '';
+    if(izinliSekme && hedef===izinliSekme) izinliButon=b;
   });
-  if(kisitli){
-    git('secilenler', document.querySelector("nav button[onclick*=\"'secilenler'\"]"));
+  if(izinliSekme && izinliButon){
+    git(izinliSekme, izinliButon);
   }else{
     hesapCiz();
   }
@@ -2412,6 +2430,17 @@ async function depoBildirimSil(id){
   await yaz('depoBildirimleri', depoBildirimleri);
   depoCiz();
 }
+/* Depo, bir talebi hazırladığında işaretler. Yanlışlıkla basılırsa geri alınabilir.
+   Grup halinde çalışır — bir talepteki tüm kitaplar tek seferde işaretlenir. */
+async function depoHazirlandiIsaretle(idler, deger){
+  const kume=new Set(idler);
+  const onceki=[...depoBildirimleri];
+  depoBildirimleri=depoBildirimleri.map(d=>kume.has(d.id)?{...d, gonderildi:deger}:d);
+  const ok=await yaz('depoBildirimleri', depoBildirimleri);
+  if(!ok){ depoBildirimleri=onceki; }
+  depoCiz();
+  if(ok) kaydedildiGoster(deger?'✓ Hazırlandı olarak işaretlendi':'Geri alındı');
+}
 function depoCiz(){
   // Gruplama: tür + okul + tarih. Tek bir "Depoya bildir" işleminde oluşan kayıtlar
   // bu üçünü paylaştığı için tek kart olarak görünür — Cumhur parça parça değil,
@@ -2425,7 +2454,14 @@ function depoCiz(){
     if(!gruplar.has(anahtar)) gruplar.set(anahtar, {tur, okulAdi:kayit.okulAdi, tarih:kayit.tarih, kayitlar:[]});
     gruplar.get(anahtar).kayitlar.push(kayit);
   });
-  const gruplarDizi=[...gruplar.values()].sort((a,b)=>b.tarih.localeCompare(a.tarih));
+  // Bekleyen talepler üstte, hazırlananlar altta — deponun sırada ne olduğunu
+  // görmesi kolay olsun. Her grup kendi içinde yeniden eskiye sıralı.
+  const gruplarDizi=[...gruplar.values()].sort((a,b)=>{
+    const aHazir=a.kayitlar.every(k=>k.gonderildi);
+    const bHazir=b.kayitlar.every(k=>k.gonderildi);
+    if(aHazir!==bHazir) return aHazir?1:-1;
+    return b.tarih.localeCompare(a.tarih);
+  });
 
   depoListe.innerHTML = gruplarDizi.length ? gruplarDizi.map(g=>{
     const tarihStr=tarihFormatla(g.tarih);
@@ -2442,15 +2478,22 @@ function depoCiz(){
       return `<button class="btn link" onclick="depoBildirimSil(${kayit.id})">${etiket}</button>`;
     }).join('');
     const toplamAdet = g.kayitlar.reduce((t,k)=>t+(k.adet||0),0);
+    // Depo, hazırladığı talebi bu butonla işaretler. Grup bazında çalışır —
+    // bir talepteki kitaplar birlikte hazırlanır. Eksik kitap gibi durumlar
+    // sistemde takip edilmez, telefonla halledilir.
+    const idler = g.kayitlar.map(k=>k.id).join(',');
+    const onayButonu = hepsiGonderildi
+      ? `<button class="btn ghost sm" onclick="depoHazirlandiIsaretle([${idler}],false)">Geri al</button>`
+      : `<button class="btn sm" onclick="depoHazirlandiIsaretle([${idler}],true)">Hazırlandı</button>`;
     return `<article class="rec">
       <div class="rec-h"><h4>${esc(g.okulAdi)}</h4><span class="barcode">${esc(tarihStr)}</span></div>
       <div class="tags">
         <span class="tag ${siparisMi?'o':'g'}">${siparisMi?'Sipariş':'Numune'}</span>
         ${siparisMi&&toplamAdet?`<span class="tag">toplam ${toplamAdet} adet</span>`:''}
         ${kitapEtiketleri}
-        <span class="tag ${hepsiGonderildi?'g':''}">${hepsiGonderildi?'Hazırlandı':'Bekliyor'}</span>
+        <span class="tag ${hepsiGonderildi?'g':''}">${hepsiGonderildi?'✓ Hazırlandı':'Bekliyor'}</span>
       </div>
-      <div class="acts" style="margin-top:11px">${silButonlari}</div>
+      <div class="acts" style="margin-top:11px">${onayButonu}${silButonlari}</div>
     </article>`;
   }).join('') : `<div class="empty"><b>Henüz bildirim yok</b><p>Ziyaret öncesi numune için yukarıdaki formu kullan. Sipariş bildirimleri "Seçilen" sekmesinden gelir.</p></div>`;
 }
@@ -2985,15 +3028,18 @@ function satir(metin,duzenle,sil,uyari){
 }
 function kullaniciSatiri(k,i){
   const n=ziyaretler.filter(z=>z.ekleyen===k).length;
-  const kisitli=kullaniciRolu(k)==='kisitli';
+  const rol=kullaniciRolu(k);
+  const tamMi=rol==='tam';
+  const secenekler=Object.entries(ROLLER).map(([anahtar,r])=>
+    `<option value="${anahtar}"${anahtar===rol?' selected':''}>${esc(r.ad)}</option>`).join('');
   return `<div class="person">
     <div>
       <b>${esc(k)}</b>
-      <span class="tag ${kisitli?'':'g'}" style="margin-left:6px">${kisitli?'Kısıtlı — sadece Seçilen':'Tam yetkili'}</span>
+      <span class="tag ${tamMi?'g':''}" style="margin-left:6px">${esc(ROLLER[rol].ad)}</span>
       ${n?`<div class="d">${n} ziyaret kaydı var</div>`:''}
     </div>
-    <div style="display:flex;gap:4px;flex:none;flex-wrap:wrap;justify-content:flex-end">
-      <button class="btn ghost sm" onclick="kullaniciRolDegistir(${i})">${kisitli?'Tam yetkili yap':'Kısıtla'}</button>
+    <div style="display:flex;gap:6px;flex:none;flex-wrap:wrap;justify-content:flex-end;align-items:center">
+      <select style="width:auto;padding:6px 8px;font-size:13px" onchange="kullaniciRolDegistir(${i},this.value)">${secenekler}</select>
       <button class="btn ghost sm" onclick="kullaniciDuzenle(${i})">Düzenle</button>
       <button class="btn link" onclick="kullaniciSil(${i})">sil</button>
     </div></div>`;
@@ -3014,17 +3060,19 @@ function ayarCiz(){
   ].map(t=>`<span class="tag g">${t}</span>`).join('');
 }
 
-async function kullaniciRolDegistir(i){
+async function kullaniciRolDegistir(i, yeniRol){
   const isim=kullanicilar[i];
-  const simdikiKisitli = kullaniciRolu(isim)==='kisitli';
-  if(!simdikiKisitli){
-    if(!confirm(`"${isim}" artık sadece "Seçilen" sekmesini görecek, başka hiçbir yere erişemeyecek. Onaylıyor musun?`))return;
-    kullaniciRolleri[isim]='kisitli';
-  }else{
-    kullaniciRolleri[isim]='tam';
+  if(!ROLLER[yeniRol]) return;
+  const eskiRol=kullaniciRolu(isim);
+  if(eskiRol===yeniRol) return;
+  const hedefSekme=ROLLER[yeniRol].sekme;
+  if(hedefSekme){
+    if(!confirm(`"${isim}" artık sadece "${ROLLER[yeniRol].ad}" yetkisiyle girecek — başka hiçbir sekmeye erişemeyecek.\n\nOnaylıyor musun?`)){ ayarCiz(); return; }
   }
-  await yaz('kullaniciRolleri',kullaniciRolleri);
-  if(ben===isim) gir(isim); // o an giriş yapmış kendi rolünü değiştirdiyse arayüz anında güncellensin
+  kullaniciRolleri[isim]=yeniRol;
+  const ok=await yaz('kullaniciRolleri',kullaniciRolleri);
+  if(!ok){ kullaniciRolleri[isim]=eskiRol; ayarCiz(); return; }
+  if(ben===isim) gir(isim); // kendi rolünü değiştirdiyse arayüz anında güncellensin
   ayarCiz();
 }
 async function kullaniciEkle(){
@@ -3032,10 +3080,11 @@ async function kullaniciEkle(){
   if(!ad) return;
   if(kullanicilar.some(k=>norm(k)===norm(ad))){ alert('Bu isim zaten var.'); return; }
   kullanicilar.push(ad); await yaz('kullanicilar',kullanicilar);
-  if(yeniKullaniciKisitli.checked){
-    kullaniciRolleri[ad]='kisitli'; await yaz('kullaniciRolleri',kullaniciRolleri);
+  const rol=yeniKullaniciRol.value;
+  if(ROLLER[rol] && rol!=='tam'){
+    kullaniciRolleri[ad]=rol; await yaz('kullaniciRolleri',kullaniciRolleri);
   }
-  yeniKullanici.value=''; yeniKullaniciKisitli.checked=false;
+  yeniKullanici.value=''; yeniKullaniciRol.value='tam';
   girisCiz(); ayarCiz();
 }
 async function kullaniciDuzenle(i){
