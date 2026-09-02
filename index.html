@@ -479,7 +479,14 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
   <div class="gate-card">
     <div class="mark">FOM<span>.</span></div>
     <p class="gate-sub">Katalog ve ziyaret defteri</p>
-    <div class="who" id="whoList"></div>
+    <div style="text-align:left">
+      <div class="f"><label for="girisEmail">E-posta</label>
+        <input id="girisEmail" type="email" autocomplete="username" inputmode="email" placeholder="ad@fomkitap.com"></div>
+      <div class="f"><label for="girisSifre">Şifre</label>
+        <input id="girisSifre" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')girisYap()"></div>
+      <p id="girisHata" style="display:none;color:var(--warn);font-size:13.5px;margin:-6px 0 12px"></p>
+      <button class="btn" id="girisButon" style="width:100%" onclick="girisYap()">Giriş yap</button>
+    </div>
   </div>
 </div>
 
@@ -946,7 +953,12 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
 
       <div class="panel">
         <h3>Kullanıcılar</h3>
-        <p class="lede" style="margin:-8px 0 12px">Giriş ekranında görünen kişiler.</p>
+        <p class="lede" style="margin:-8px 0 12px">Sistemdeki kişiler ve yetkileri.</p>
+        <div class="note-bar" style="margin-bottom:14px">
+          Buradaki liste kişinin <b>adını ve yetkisini</b> belirler. Giriş yapabilmesi için
+          ayrıca Supabase panelinden (Authentication → Users) <b>e-posta + şifre hesabı</b>
+          açılmalı, sonra "E-posta" butonuyla o adres buradaki isimle eşleştirilmelidir.
+        </div>
         <div id="kullaniciListe"></div>
         <div class="f" style="margin-top:12px"><label for="yeniKullanici">Yeni kullanıcı</label>
           <input id="yeniKullanici" placeholder="Ad" onkeydown="if(event.key==='Enter')kullaniciEkle()"></div>
@@ -1145,6 +1157,22 @@ async function rolleriSenkronize(nesne){
     return false;
   }
 }
+async function emailleriSenkronize(nesne){
+  try{
+    const {error:e1} = await db.from('kullanici_emailleri').delete().neq('kullanici_ad','__yok__');
+    if(e1) throw e1;
+    const satirlar = Object.entries(nesne).map(([kullanici_ad,email])=>({kullanici_ad,email}));
+    if(satirlar.length){
+      const {error:e2} = await db.from('kullanici_emailleri').insert(satirlar);
+      if(e2) throw e2;
+    }
+    return true;
+  }catch(e){
+    console.error('Supabase yazma hatası: kullanici_emailleri', e);
+    alert(`Kaydedilemedi! İnternet bağlantını kontrol et ve tekrar dene.\n\nDetay: ${e.message||e}`);
+    return false;
+  }
+}
 
 /* eski localStorage tabanlı kodun HİÇ değişmeden çalışmaya devam etmesi için:
    aynı isimli yaz(anahtar, veri) fonksiyonu artık Supabase'e yazıyor. */
@@ -1159,6 +1187,7 @@ async function yaz(k,v){
     case 'kullanicilar': return await stringDiziSenkronize('kullanicilar', v);
     case 'hesapTurleri': return await stringDiziSenkronize('hesap_turleri', v);
     case 'kullaniciRolleri': return await rolleriSenkronize(v);
+    case 'kullaniciEmailleri': return await emailleriSenkronize(v);
   }
   return true;
 }
@@ -1197,6 +1226,9 @@ function yeniId(){ _idSayac = (_idSayac+1) % 1000; return Date.now()*1000 + _idS
 let KITAPLAR=[], hesaplar=[], ziyaretler=[], secimler=[];
 let kullanicilar=['Pelin','Ömer'];
 let kullaniciRolleri={};
+// E-posta -> isim eşleştirmesi. Auth ile giriş yapan kişinin e-postası,
+// sistem içindeki adına (ziyaretlerde "ekleyen" olarak görünen ada) bu haritayla bağlanır.
+let kullaniciEmailleri={};
 /* Kullanıcı rolleri. 'sekme' dolu ise, o kullanıcı SADECE o sekmeyi görür.
    'kisitli' anahtarı geriye dönük uyumluluk için korundu (Zuhal'in mevcut kaydı
    bu değerle duruyor) — anlamı "sadece Seçilen". */
@@ -1263,6 +1295,14 @@ async function uygulamayiBaslat(){
       console.warn('yazar_etkinlikleri tablosu henüz hazır değil (SQL çalıştırılmamış olabilir):', e);
       yazarEtkinlikleri = [];
     }
+    try{
+      const {data,error} = await db.from('kullanici_emailleri').select('*');
+      if(error) throw error;
+      kullaniciEmailleri = {}; (data||[]).forEach(r=>{ kullaniciEmailleri[r.kullanici_ad]=r.email; });
+    }catch(e){
+      console.warn('kullanici_emailleri tablosu henüz hazır değil:', e);
+      kullaniciEmailleri = {};
+    }
 
     yukleniyor.style.display='none';
     gate.style.display='';
@@ -1275,15 +1315,43 @@ async function uygulamayiBaslat(){
 }
 
 /* ---------- giriş ---------- */
-function girisCiz(){
-  whoList.innerHTML=kullanicilar.map((k,i)=>
-    `<button onclick="girIndex(${i})"><i>${esc(k.charAt(0).toLocaleUpperCase('tr'))}</i> ${esc(k)} olarak devam et</button>`
-  ).join('') || `<p class="gate-sub">Kullanıcı tanımlı değil.</p>`;
-}
-
+/* Artık kullanılmıyor (giriş ekranı sabit e-posta+şifre formu) — eski çağrı
+   yerleri (kullaniciEkle/Duzenle/Sil, yedekYukle) hata vermesin diye boş bırakıldı. */
+function girisCiz(){}
 function girIndex(i){ if(kullanicilar[i]) gir(kullanicilar[i]); }
+
+/* Giriş yapan e-postanın hangi isme ait olduğunu bulur.
+   norm() Türkçe karakter ve büyük/küçük harf farkını çözer; kayıtta yanlışlıkla
+   boşluk kalmış olabileceği için iki taraf da ayrıca trim edilir. */
+function emailIsmiBul(email){
+  const hedef = norm(String(email||'').trim());
+  return Object.keys(kullaniciEmailleri).find(isim =>
+    norm(String(kullaniciEmailleri[isim]||'').trim()) === hedef) || null;
+}
+async function girisYap(){
+  const email=girisEmail.value.trim(), sifre=girisSifre.value;
+  girisHata.style.display='none';
+  if(!email || !sifre){
+    girisHata.textContent='E-posta ve şifre gerekli.'; girisHata.style.display='block'; return;
+  }
+  girisButon.disabled=true; girisButon.textContent='Giriş yapılıyor…';
+  try{
+    const {error} = await db.auth.signInWithPassword({email, password:sifre});
+    if(error){
+      girisHata.textContent='Giriş başarısız — e-posta ya da şifre hatalı olabilir.';
+      girisHata.style.display='block';
+      return;
+    }
+    gir(emailIsmiBul(email) || email);
+  }catch(e){
+    girisHata.textContent='Bağlantı hatası. İnternetini kontrol edip tekrar dene.';
+    girisHata.style.display='block';
+  }finally{
+    girisButon.disabled=false; girisButon.textContent='Giriş yap';
+  }
+}
 function gir(k){
-  ben=k; sessionStorage.setItem('fom_ben',k);
+  ben=k;
   gate.style.display='none'; shell.classList.add('on'); benim.textContent=k;
   kur();
   // Rolde bir sekme tanımlıysa, kullanıcı yalnızca o sekmeyi görür.
@@ -1302,7 +1370,7 @@ function gir(k){
     hesapCiz();
   }
 }
-function cik(){ sessionStorage.removeItem('fom_ben'); location.reload(); }
+async function cik(){ try{ await db.auth.signOut(); }catch(e){} location.reload(); }
 
 /* yarım kalmış YENİ kayıt formu varsa (düzenleme değil), sekme değişmeden önce uyarır */
 function formlarKirliMi(){
@@ -1381,6 +1449,13 @@ async function veriTazele(hangiler){
       if(error) throw error;
       kullaniciRolleri = {}; data.forEach(x=>{ kullaniciRolleri[x.kullanici_ad]=x.rol; });
     },
+    kullaniciEmailleri: async ()=>{
+      try{
+        const {data,error} = await db.from('kullanici_emailleri').select('*');
+        if(error) throw error;
+        kullaniciEmailleri = {}; data.forEach(x=>{ kullaniciEmailleri[x.kullanici_ad]=x.email; });
+      }catch(e){ console.warn('kullanici_emailleri tablosu henüz hazır değil:', e); }
+    },
     hesapTurleri: async ()=>{
       const {data,error} = await db.from('hesap_turleri').select('*').order('sira');
       if(error) throw error;
@@ -1409,7 +1484,7 @@ async function git(v,el){
     yazaretkinlik: ['yazarEtkinlikleri'],
     katalog: ['kitaplar'],
     raporlar: ['ziyaretler','secimler','hesaplar','kitaplar'],
-    ayarlar: ['kullanicilar','kullaniciRolleri','hesapTurleri'],
+    ayarlar: ['kullanicilar','kullaniciRolleri','kullaniciEmailleri','hesapTurleri'],
   };
   if(tazeleHaritasi[v]) await veriTazele(tazeleHaritasi[v]);
 
@@ -3052,14 +3127,17 @@ function kullaniciSatiri(k,i){
   const tamMi=rol==='tam';
   const secenekler=Object.entries(ROLLER).map(([anahtar,r])=>
     `<option value="${anahtar}"${anahtar===rol?' selected':''}>${esc(r.ad)}</option>`).join('');
+  const email=kullaniciEmailleri[k]||'';
   return `<div class="person">
     <div>
       <b>${esc(k)}</b>
       <span class="tag ${tamMi?'g':''}" style="margin-left:6px">${esc(ROLLER[rol].ad)}</span>
+      <div class="d">${email?esc(email):'<span style="color:var(--warn)">e-posta atanmadı — giriş yapamaz</span>'}</div>
       ${n?`<div class="d">${n} ziyaret kaydı var</div>`:''}
     </div>
     <div style="display:flex;gap:6px;flex:none;flex-wrap:wrap;justify-content:flex-end;align-items:center">
       <select style="width:auto;padding:6px 8px;font-size:13px" onchange="kullaniciRolDegistir(${i},this.value)">${secenekler}</select>
+      <button class="btn ghost sm" onclick="kullaniciEmailDegistir(${i})">E-posta</button>
       <button class="btn ghost sm" onclick="kullaniciDuzenle(${i})">Düzenle</button>
       <button class="btn link" onclick="kullaniciSil(${i})">sil</button>
     </div></div>`;
@@ -3080,6 +3158,25 @@ function ayarCiz(){
   ].map(t=>`<span class="tag g">${t}</span>`).join('');
 }
 
+async function kullaniciEmailDegistir(i){
+  const isim=kullanicilar[i];
+  const mevcut=kullaniciEmailleri[isim]||'';
+  const yeni=prompt(`"${isim}" hangi e-posta ile giriş yapacak?\n\nNOT: Bu yalnızca e-posta–isim eşleştirmesidir.\nGiriş hesabı (şifre) Supabase panelinden ayrıca oluşturulur.`, mevcut);
+  if(yeni===null) return;
+  const email=yeni.trim();
+  const onceki={...kullaniciEmailleri};
+  if(email){
+    const cakisan=Object.keys(kullaniciEmailleri).find(x=>
+      x!==isim && norm(String(kullaniciEmailleri[x]||'').trim())===norm(email));
+    if(cakisan){ alert(`Bu e-posta zaten "${cakisan}" kullanıcısına atanmış. Her kullanıcının kendi e-postası olmalı.`); return; }
+    kullaniciEmailleri[isim]=email;
+  }else{
+    delete kullaniciEmailleri[isim];
+  }
+  const ok=await yaz('kullaniciEmailleri',kullaniciEmailleri);
+  if(!ok) kullaniciEmailleri=onceki;
+  ayarCiz();
+}
 async function kullaniciRolDegistir(i, yeniRol){
   const isim=kullanicilar[i];
   if(!ROLLER[yeniRol]) return;
@@ -3118,15 +3215,21 @@ async function kullaniciDuzenle(i){
     kullaniciRolleri[ad]=kullaniciRolleri[eski]; delete kullaniciRolleri[eski];
     await yaz('kullaniciRolleri',kullaniciRolleri);
   }
-  if(ben===eski){ ben=ad; benim.textContent=ad; sessionStorage.setItem('fom_ben',ad); }
+  // İsim değişince e-posta eşleştirmesi de taşınmalı, yoksa kişi giriş yapamaz olur
+  if(kullaniciEmailleri[eski]!==undefined){
+    kullaniciEmailleri[ad]=kullaniciEmailleri[eski]; delete kullaniciEmailleri[eski];
+    await yaz('kullaniciEmailleri',kullaniciEmailleri);
+  }
+  if(ben===eski){ ben=ad; benim.textContent=ad; }
   girisCiz(); ayarCiz();
 }
 async function kullaniciSil(i){
   if(kullanicilar.length<2){ alert('En az bir kullanıcı kalmalı.'); return; }
-  if(!confirm(`"${kullanicilar[i]}" silinecek. Yazdığı ziyaretler silinmez, kaydeden adı olduğu gibi kalır.`))return;
+  if(!confirm(`"${kullanicilar[i]}" silinecek. Yazdığı ziyaretler silinmez, kaydeden adı olduğu gibi kalır.\n\nNot: Bu işlem kişinin Supabase'deki giriş hesabını SİLMEZ — onu Supabase panelinden ayrıca silmen gerekir.`))return;
   const isim=kullanicilar[i];
   kullanicilar.splice(i,1); await yaz('kullanicilar',kullanicilar);
   if(kullaniciRolleri[isim]!==undefined){ delete kullaniciRolleri[isim]; await yaz('kullaniciRolleri',kullaniciRolleri); }
+  if(kullaniciEmailleri[isim]!==undefined){ delete kullaniciEmailleri[isim]; await yaz('kullaniciEmailleri',kullaniciEmailleri); }
   girisCiz(); ayarCiz();
 }
 
@@ -3250,9 +3353,15 @@ document.addEventListener('click', e=>{
 
 /* ---------- açılış ---------- */
 temaDegistir(localStorage.getItem('fom_tema') || ''); // sayfa yüklenir yüklenmez, event beklemeden uygula
-uygulamayiBaslat().then(()=>{
-  const k=sessionStorage.getItem('fom_ben');
-  if(k && kullanicilar.includes(k)) gir(k);
+uygulamayiBaslat().then(async ()=>{
+  // Tarayıcıda geçerli bir Supabase oturumu varsa doğrudan içeri al —
+  // her açılışta tekrar şifre girmek gerekmesin.
+  try{
+    const {data:{session}} = await db.auth.getSession();
+    if(session && session.user && session.user.email){
+      gir(emailIsmiBul(session.user.email) || session.user.email);
+    }
+  }catch(e){ console.warn('Oturum kontrolü yapılamadı:', e); }
 });
 </script>
 </body>
