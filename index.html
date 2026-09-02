@@ -424,6 +424,17 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
    filtreleme kodu/mantığı bilinçli olarak korunuyor, sadece o kısım görünmüyor. */
 #ziyaretOkulFiltre button:not(:first-child){display:none}
 
+/* ---------- şifre değiştirme penceresi ---------- */
+.ortu{
+  position:fixed;inset:0;background:rgba(22,35,61,.45);z-index:100;
+  display:flex;align-items:center;justify-content:center;padding:20px;
+}
+.ortu-kutu{
+  background:var(--surface);border-radius:var(--r);padding:22px;
+  width:100%;max-width:400px;box-shadow:0 12px 40px rgba(22,35,61,.25);
+}
+.ortu-kutu h3{font-family:var(--display);font-size:19px;font-weight:700;margin-bottom:4px}
+
 /* ---------- açılır kapanır klasör başlığı ---------- */
 .klasor{
   display:flex;align-items:center;gap:10px;
@@ -490,11 +501,29 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
   </div>
 </div>
 
+<!-- ŞİFRE DEĞİŞTİRME -->
+<div class="ortu" id="sifreOrtu" style="display:none" onclick="if(event.target===this)sifreDegistirKapat()">
+  <div class="ortu-kutu">
+    <h3>Şifre değiştir</h3>
+    <p class="lede" style="margin:-6px 0 14px">Yeni şifren en az 6 karakter olmalı.</p>
+    <div class="f"><label for="sifreYeni">Yeni şifre</label>
+      <input id="sifreYeni" type="password" autocomplete="new-password"></div>
+    <div class="f"><label for="sifreYeni2">Yeni şifre (tekrar)</label>
+      <input id="sifreYeni2" type="password" autocomplete="new-password"
+             onkeydown="if(event.key==='Enter')sifreKaydet()"></div>
+    <p id="sifreMesaj" style="display:none;font-size:13.5px;margin:-6px 0 12px"></p>
+    <div class="acts">
+      <button class="btn" id="sifreKaydetButon" onclick="sifreKaydet()">Kaydet</button>
+      <button class="btn ghost" onclick="sifreDegistirKapat()">Vazgeç</button>
+    </div>
+  </div>
+</div>
+
 <!-- UYGULAMA -->
 <div class="shell" id="shell">
   <div class="top">
     <div class="mark">FOM<span>.</span></div>
-    <div class="me"><b id="benim"></b><button onclick="cik()">çıkış</button></div>
+    <div class="me"><b id="benim"></b><button onclick="sifreDegistirAc()">şifre</button><button onclick="cik()">çıkış</button></div>
   </div>
 
   <nav>
@@ -1368,6 +1397,40 @@ function gir(k){
     git(izinliSekme, izinliButon);
   }else{
     hesapCiz();
+  }
+}
+/* ---------- şifre değiştirme ----------
+   Kullanıcı kendi şifresini değiştirir. Üst barda durduğu için Zuhal ve Cumhur
+   gibi Ayarlar'a erişemeyen kısıtlı kullanıcılar da kullanabilir. */
+function sifreDegistirAc(){
+  sifreYeni.value=''; sifreYeni2.value='';
+  sifreMesaj.style.display='none';
+  sifreOrtu.style.display='flex';
+  sifreYeni.focus();
+}
+function sifreDegistirKapat(){ sifreOrtu.style.display='none'; }
+function sifreMesajGoster(metin, hataMi){
+  sifreMesaj.textContent=metin;
+  sifreMesaj.style.color = hataMi ? 'var(--warn)' : 'var(--accent)';
+  sifreMesaj.style.display='block';
+}
+async function sifreKaydet(){
+  const y1=sifreYeni.value, y2=sifreYeni2.value;
+  if(y1.length<6){ sifreMesajGoster('Şifre en az 6 karakter olmalı.', true); return; }
+  if(y1!==y2){ sifreMesajGoster('İki şifre birbirini tutmuyor.', true); return; }
+  sifreKaydetButon.disabled=true; sifreKaydetButon.textContent='Kaydediliyor…';
+  try{
+    const {error} = await db.auth.updateUser({password:y1});
+    if(error){
+      sifreMesajGoster('Değiştirilemedi: '+(error.message||'bilinmeyen hata'), true);
+      return;
+    }
+    sifreMesajGoster('Şifren değiştirildi.', false);
+    setTimeout(()=>{ sifreDegistirKapat(); kaydedildiGoster('🔑 Şifre değiştirildi'); }, 900);
+  }catch(e){
+    sifreMesajGoster('Bağlantı hatası. İnternetini kontrol edip tekrar dene.', true);
+  }finally{
+    sifreKaydetButon.disabled=false; sifreKaydetButon.textContent='Kaydet';
   }
 }
 async function cik(){ try{ await db.auth.signOut(); }catch(e){} location.reload(); }
