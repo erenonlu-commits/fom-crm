@@ -1711,6 +1711,8 @@ async function kitapKaydet(){
   const cakisan=KITAPLAR.find(x=>x.barkod===barkod && x.id!==duzenlenenKitap);
   if(barkod && cakisan){ alert('Bu barkod zaten kayıtlı: '+cakisan.ad); return false; }
   const duzenlemeMi=duzenlenenKitap!=null;
+  // Kayıt başarısız olursa geri dönebilmek için önceki hali sakla
+  const oncekiKitaplar=[...KITAPLAR];
   const veri={
     ad, yazar:kYazar.value.trim(), turu:kTur.value.trim()||'Belirtilmemiş',
     barkod, seviye:sev, sinif:sinifMetni(sev)
@@ -1723,7 +1725,9 @@ async function kitapKaydet(){
     sonEklenenKitapId=veri.id; // sadece YENİ eklemede vurgula, düzenlemede değil
     setTimeout(()=>{ sonEklenenKitapId=null; }, 1500);
   }
-  const basarili=await katalogKaydet(); kapat('kForm');
+  const basarili=await katalogKaydet();
+  if(!basarili){ KITAPLAR=oncekiKitaplar; indeksle(); }
+  kapat('kForm');
   const acilanId = duzenlenenKitap ?? veri.id;
   duzenlenenKitap=null;
   kur(); kunyeCiz(acilanId);
@@ -1832,9 +1836,13 @@ async function hesapKaydet(){
     kisiler: duzenlemeMi ? (hesaplar.find(x=>x.id===duzenlenenHesap)?.kisiler||[]) : ilkKisi,
     ekleyen: ben
   };
+  // Kayıt başarısız olursa geri dönebilmek için önceki hali sakla
+  const oncekiHesaplar=[...hesaplar];
   if(duzenlenenHesap) hesaplar=hesaplar.map(x=>x.id===duzenlenenHesap?h:x);
   else hesaplar.push(h);
-  const basarili=await yaz('hesaplar',hesaplar); duzenlenenHesap=null;
+  const basarili=await yaz('hesaplar',hesaplar);
+  if(!basarili) hesaplar=oncekiHesaplar;
+  duzenlenenHesap=null;
   hFormBaslik.textContent='Yeni hesap';
   ['hAd','hAdres','hNot','hKisiAd','hKisiGorev','hKisiTel','hKisiMail'].forEach(i=>document.getElementById(i).value='');
   document.querySelectorAll('.kdm').forEach(c=>c.checked=false);
@@ -1892,6 +1900,9 @@ async function kisiKaydet(){
   const ad=pAd.value.trim();
   if(!ad){ alert('Ad Soyad gerekli.'); pAd.focus(); return false; }
   const h=hesaplar.find(x=>x.id===kisiHesapId); if(!h)return false;
+  // Kayıt başarısız olursa geri dönebilmek için önceki hali sakla (derin kopya —
+  // kişiler dizisi nesne içinde, yüzeysel kopya yetmez)
+  const oncekiHesaplar=JSON.parse(JSON.stringify(hesaplar));
   h.kisiler=h.kisiler||[];
   const veri={ad,gorev:pGorev.value.trim(),tel:pTel.value.trim(),mail:pMail.value.trim()};
   const duzenlemeMi=duzenlenenKisi!=null;
@@ -1904,6 +1915,7 @@ async function kisiKaydet(){
     h.kisiler.push({id:yeniId(),...veri});
   }
   const basarili=await yaz('hesaplar',hesaplar);
+  if(!basarili){ hesaplar=oncekiHesaplar; kapat('kisiForm'); hesapCiz(true); return false; }
   // isim değiştiyse, bu kişiyle yapılmış geçmiş ziyaretlerdeki ismi de güncelle
   if(eskiAd && eskiAd!==ad){
     ziyaretler=ziyaretler.map(z => (z.hesapId===kisiHesapId && z.kisi===eskiAd) ? {...z, kisi:ad} : z);
@@ -2605,10 +2617,13 @@ async function depoEkle(){
   if(!okulAdi){ alert('Okul adı gerekli.'); depoOkulAdi.focus(); return false; }
   if(!depoSecilenKitaplar.length){ alert('En az bir kitap seç.'); return false; }
   const tarih=new Date().toISOString().slice(0,10);
+  // Kayıt başarısız olursa geri dönebilmek için önceki hali sakla
+  const oncekiBildirimler=[...depoBildirimleri];
   depoSecilenKitaplar.forEach(kitapId=>{
     depoBildirimleri.push({id:yeniId(), okulAdi, kitapId, tarih, gonderildi:false, olusturan:ben, kaynakZiyaretId:null, adet:null, tur:'Numune'});
   });
   const basarili=await yaz('depoBildirimleri', depoBildirimleri);
+  if(!basarili){ depoBildirimleri=oncekiBildirimler; depoCiz(); return false; }
   depoFormTemizle(); depoCiz();
   return basarili;
 }
@@ -2847,11 +2862,15 @@ async function secimEkle(){
   if(!secimTarih.value){ alert('Tarih gerekli.'); secimTarih.focus(); return false; }
   if(!secimSecilenKitaplar.length){ alert('En az bir kitap seç.'); return false; }
   const tarih=secimTarih.value, hesapId=secimHesapSeciliId, donem=secimDonem.value;
+  // Kayıt başarısız olursa geri dönebilmek için önceki hali sakla — aksi halde
+  // ekranda duran ama sunucuya yazılmamış "hayalet" kayıt oluşur.
+  const oncekiSecimler=[...secimler];
   secimSecilenKitaplar.forEach(kitapId=>{
     const adet = secimKitapAdetleri[kitapId] ?? null;
     secimler.push({id:yeniId(), ziyaretId:null, hesapId, kitapId, tarih, donem, adet, not:'', depoyaBildirildi:false});
   });
   const basarili=await yaz('secimler', secimler);
+  if(!basarili) secimler=oncekiSecimler;
   secimKitapAdetleri={};
   // Kaydedilen kayıt görünsün: klasörü aç, aktif aramayı temizle
   secimKlasorAcik=true;
