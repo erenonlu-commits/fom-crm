@@ -424,6 +424,14 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
    filtreleme kodu/mantığı bilinçli olarak korunuyor, sadece o kısım görünmüyor. */
 #ziyaretOkulFiltre button:not(:first-child){display:none}
 
+/* Depo kartındaki kitap etiketleri: yanında küçük silme düğmesi */
+.tag-silinebilir{display:inline-flex;align-items:center;gap:6px;padding-right:5px}
+.tag-sil{
+  color:var(--warn);font-size:15px;line-height:1;padding:0 3px;
+  border-radius:4px;flex:none;opacity:.65;transition:opacity .15s,background .15s;
+}
+.tag-sil:hover{opacity:1;background:rgba(180,70,47,.12)}
+
 /* ---------- şifre değiştirme penceresi ---------- */
 .ortu{
   position:fixed;inset:0;background:rgba(22,35,61,.45);z-index:100;
@@ -845,6 +853,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
 
         <div id="secimBekleyenler"></div>
         <div id="secilenListe"></div>
+        <div id="secimArsiv"></div>
       </div>
     </section>
 
@@ -881,6 +890,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
       </div>
 
       <div id="depoListe"></div>
+      <div id="depoArsiv"></div>
     </section>
 
     <!-- YAZAR ETKİNLİKLERİ -->
@@ -983,11 +993,6 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
       <div class="panel">
         <h3>Kullanıcılar</h3>
         <p class="lede" style="margin:-8px 0 12px">Sistemdeki kişiler ve yetkileri.</p>
-        <div class="note-bar" style="margin-bottom:14px">
-          Buradaki liste kişinin <b>adını ve yetkisini</b> belirler. Giriş yapabilmesi için
-          ayrıca Supabase panelinden (Authentication → Users) <b>e-posta + şifre hesabı</b>
-          açılmalı, sonra "E-posta" butonuyla o adres buradaki isimle eşleştirilmelidir.
-        </div>
         <div id="kullaniciListe"></div>
         <div class="f" style="margin-top:12px"><label for="yeniKullanici">Yeni kullanıcı</label>
           <input id="yeniKullanici" placeholder="Ad" onkeydown="if(event.key==='Enter')kullaniciEkle()"></div>
@@ -1272,8 +1277,11 @@ function kullaniciRolu(isim){
 }
 let hesapTurleri=['Okul','Dağıtımcı','Kitabevi'];
 
-async function uygulamayiBaslat(){
-  try{
+/* Verileri sunucudan çeker.
+   ÖNEMLİ: RLS açık olduğu için bu ancak GİRİŞ YAPILDIKTAN SONRA çalışır.
+   Giriş öncesi çağrılırsa yetki gerektiren tablolar (roller dahil) boş döner
+   ve herkes yanlışlıkla "tam yetkili" görünür. */
+async function verileriYukle(){
     // Büyüyen tablolar sayfalama ile çekiliyor (1000 satır sınırını aşmak için).
     // Küçük ayar tabloları (kullanıcı/durum/tür) doğrudan çekilebilir — binlerce satır olmaz.
     const [kData,hData,zData,sData,kuRes,krRes,htRes] = await Promise.all([
@@ -1333,9 +1341,32 @@ async function uygulamayiBaslat(){
       kullaniciEmailleri = {};
     }
 
-    yukleniyor.style.display='none';
-    gate.style.display='';
-    girisCiz();
+}
+
+/* Giriş doğrulandıktan sonra: önce veriyi çek (roller ancak şimdi okunabilir),
+   sonra arayüzü aç. */
+async function girisSonrasi(email){
+  await verileriYukle();
+  yukleniyor.style.display='none';
+  gate.style.display='none';
+  gir(emailIsmiBul(email) || email);
+}
+
+async function uygulamayiBaslat(){
+  try{
+    const {data:{session}} = await db.auth.getSession();
+    if(session && session.user && session.user.email){
+      await girisSonrasi(session.user.email);
+    }else{
+      // Henüz giriş yok. Sadece e-posta eşleştirmesi okunur (o tabloda RLS kapalı)
+      // — giriş anında e-postayı isme çevirebilmek için gerekiyor.
+      try{
+        const {data} = await db.from('kullanici_emailleri').select('*');
+        kullaniciEmailleri = {}; (data||[]).forEach(r=>{ kullaniciEmailleri[r.kullanici_ad]=r.email; });
+      }catch(e){ kullaniciEmailleri = {}; }
+      yukleniyor.style.display='none';
+      gate.style.display='';
+    }
   }catch(e){
     console.error('Başlatma hatası:', e);
     const detay = (e && (e.message || e.error_description || e.hint || e.details)) || JSON.stringify(e) || String(e);
@@ -1371,7 +1402,7 @@ async function girisYap(){
       girisHata.style.display='block';
       return;
     }
-    gir(emailIsmiBul(email) || email);
+    await girisSonrasi(email);
   }catch(e){
     girisHata.textContent='Bağlantı hatası. İnternetini kontrol edip tekrar dene.';
     girisHata.style.display='block';
@@ -1973,6 +2004,8 @@ function hesapCiz(korunanIl){
 /* Hesap listesi, uzayınca sayfayı doldurmasın diye açılır kapanır bir klasörde.
    Açık/kapalı durumu oturum boyunca hatırlanır — sekmeler arası gezerken
    her seferinde tekrar açmak gerekmesin. */
+let depoArsivAcik=false;
+let secimArsivAcik=false;
 let hesapKlasorAcik=false;
 function hesapAramaTemizle(){
   const el=document.getElementById('hesapAra');
@@ -2600,7 +2633,7 @@ function depoCiz(){
   // Gruplama: tür + okul + tarih. Tek bir "Depoya bildir" işleminde oluşan kayıtlar
   // bu üçünü paylaştığı için tek kart olarak görünür — Cumhur parça parça değil,
   // o okula ait bütün talebi bir arada görür.
-  // Numune (Depoya Bildir sekmesinden, ziyaret öncesi) ile Sipariş (Seçilen'den,
+  // Numune (Depo Paneli formundan, ziyaret öncesi) ile Sipariş (Seçilen'den,
   // adetli) kayıtları asla aynı kartta birleşmez.
   const gruplar=new Map();
   depoBildirimleri.forEach(kayit=>{
@@ -2609,51 +2642,62 @@ function depoCiz(){
     if(!gruplar.has(anahtar)) gruplar.set(anahtar, {tur, okulAdi:kayit.okulAdi, tarih:kayit.tarih, kayitlar:[]});
     gruplar.get(anahtar).kayitlar.push(kayit);
   });
-  // Bekleyen talepler üstte, hazırlananlar altta — deponun sırada ne olduğunu
-  // görmesi kolay olsun. Her grup kendi içinde yeniden eskiye sıralı.
-  const gruplarDizi=[...gruplar.values()].sort((a,b)=>{
-    const aHazir=a.kayitlar.every(k=>k.gonderildi);
-    const bHazir=b.kayitlar.every(k=>k.gonderildi);
-    if(aHazir!==bHazir) return aHazir?1:-1;
-    return b.tarih.localeCompare(a.tarih);
-  });
+  const tumGruplar=[...gruplar.values()].sort((a,b)=>b.tarih.localeCompare(a.tarih));
+  // Hazırlanmış talepler ("operasyon bitti") arşiv klasörüne iner — ekranda
+  // yalnızca sırada bekleyen iş kalır. Arşiv kaybolmaz, klasör açılınca görünür.
+  const bekleyenler=tumGruplar.filter(g=>!g.kayitlar.every(k=>k.gonderildi));
+  const tamamlananlar=tumGruplar.filter(g=>g.kayitlar.every(k=>k.gonderildi));
 
-  depoListe.innerHTML = gruplarDizi.length ? gruplarDizi.map(g=>{
-    const tarihStr=tarihFormatla(g.tarih);
-    const hepsiGonderildi = g.kayitlar.every(k=>k.gonderildi);
-    const siparisMi = g.tur==='Sipariş';
-    const kitapEtiketleri = g.kayitlar.map(kayit=>{
-      const k=KITAPLAR.find(x=>x.id===kayit.kitapId);
-      const adetMetni = kayit.adet!=null ? ` (${kayit.adet})` : '';
-      return `<span class="tag">${esc(k?k.ad:'Silinmiş kitap')}${adetMetni}</span>`;
-    }).join('');
-    const silButonlari = g.kayitlar.map(kayit=>{
-      const k=KITAPLAR.find(x=>x.id===kayit.kitapId);
-      const tamAd = k?k.ad:'Silinmiş kitap';
-      // Uzun kitap adları butonu dar ekranda taşırıyordu — kısaltılıp
-      // tam adı title (üzerine gelince çıkan ipucu) olarak veriliyor.
-      const etiket = g.kayitlar.length>1 ? `Sil: ${esc(kisalt(tamAd))}` : 'Sil';
-      return `<button class="btn link" title="${esc(tamAd)}" onclick="depoBildirimSil(${kayit.id})">${etiket}</button>`;
-    }).join('');
-    const toplamAdet = g.kayitlar.reduce((t,k)=>t+(k.adet||0),0);
-    // Depo, hazırladığı talebi bu butonla işaretler. Grup bazında çalışır —
-    // bir talepteki kitaplar birlikte hazırlanır. Eksik kitap gibi durumlar
-    // sistemde takip edilmez, telefonla halledilir.
-    const idler = g.kayitlar.map(k=>k.id).join(',');
-    const onayButonu = hepsiGonderildi
-      ? `<button class="btn ghost sm" onclick="depoHazirlandiIsaretle([${idler}],false)">Geri al</button>`
-      : `<button class="btn sm" onclick="depoHazirlandiIsaretle([${idler}],true)">Hazırlandı</button>`;
-    return `<article class="rec">
-      <div class="rec-h"><h4>${esc(g.okulAdi)}</h4><span class="barcode">${esc(tarihStr)}</span></div>
-      <div class="tags">
-        <span class="tag ${siparisMi?'o':'g'}">${siparisMi?'Sipariş':'Numune'}</span>
-        ${siparisMi&&toplamAdet?`<span class="tag">toplam ${toplamAdet} adet</span>`:''}
-        ${kitapEtiketleri}
-        <span class="tag ${hepsiGonderildi?'g':''}">${hepsiGonderildi?'✓ Hazırlandı':'Bekliyor'}</span>
+  depoListe.innerHTML = bekleyenler.length
+    ? bekleyenler.map(depoKartiHtml).join('')
+    : (tumGruplar.length
+        ? `<div class="empty"><b>Bekleyen talep yok</b><p>Hazırlanmış talepler aşağıdaki klasörde.</p></div>`
+        : `<div class="empty"><b>Henüz bildirim yok</b><p>Ziyaret öncesi numune için yukarıdaki formu kullan. Sipariş bildirimleri "Seçilen" sekmesinden gelir.</p></div>`);
+
+  const arsivKap=document.getElementById('depoArsiv');
+  if(arsivKap){
+    arsivKap.innerHTML = tamamlananlar.length ? `
+      <div class="klasor${depoArsivAcik?' acik':''}" onclick="depoArsivToggle()">
+        <span class="klasor-ok">▸</span>
+        <span class="klasor-ad">Tamamlananlar</span>
+        <span class="klasor-sayi">${tamamlananlar.length}</span>
       </div>
-      <div class="acts" style="margin-top:11px">${onayButonu}${silButonlari}</div>
-    </article>`;
-  }).join('') : `<div class="empty"><b>Henüz bildirim yok</b><p>Ziyaret öncesi numune için yukarıdaki formu kullan. Sipariş bildirimleri "Seçilen" sekmesinden gelir.</p></div>`;
+      <div style="display:${depoArsivAcik?'block':'none'}">
+        ${tamamlananlar.map(depoKartiHtml).join('')}
+      </div>` : '';
+  }
+}
+function depoArsivToggle(){ depoArsivAcik=!depoArsivAcik; depoCiz(); }
+function depoKartiHtml(g){
+  const tarihStr=tarihFormatla(g.tarih);
+  const hepsiGonderildi = g.kayitlar.every(k=>k.gonderildi);
+  const siparisMi = g.tur==='Sipariş';
+  // Her kitabın yanında küçük bir × — tek tek silmek mümkün kalsın ama
+  // alt alta dizilen uzun "Sil: ..." butonları kartı doldurmasın.
+  const kitapEtiketleri = g.kayitlar.map(kayit=>{
+    const k=KITAPLAR.find(x=>x.id===kayit.kitapId);
+    const tamAd = k?k.ad:'Silinmiş kitap';
+    const adetMetni = kayit.adet!=null ? ` (${kayit.adet})` : '';
+    return `<span class="tag tag-silinebilir">${esc(tamAd)}${adetMetni}<button class="tag-sil" title="${esc(tamAd)} — kaydı sil" aria-label="Sil" onclick="event.stopPropagation();depoBildirimSil(${kayit.id})">×</button></span>`;
+  }).join('');
+  const toplamAdet = g.kayitlar.reduce((t,k)=>t+(k.adet||0),0);
+  // Depo, hazırladığı talebi bu butonla işaretler. Grup bazında çalışır —
+  // bir talepteki kitaplar birlikte hazırlanır. Eksik kitap gibi durumlar
+  // sistemde takip edilmez, telefonla halledilir.
+  const idler = g.kayitlar.map(k=>k.id).join(',');
+  const onayButonu = hepsiGonderildi
+    ? `<button class="btn ghost sm" onclick="event.stopPropagation();depoHazirlandiIsaretle([${idler}],false)">Geri al</button>`
+    : `<button class="btn sm" onclick="event.stopPropagation();depoHazirlandiIsaretle([${idler}],true)">Hazırlandı</button>`;
+  return `<article class="rec">
+    <div class="rec-h"><h4>${esc(g.okulAdi)}</h4><span class="barcode">${esc(tarihStr)}</span></div>
+    <div class="tags">
+      <span class="tag ${siparisMi?'o':'g'}">${siparisMi?'Sipariş':'Numune'}</span>
+      ${siparisMi&&toplamAdet?`<span class="tag">toplam ${toplamAdet} adet</span>`:''}
+      ${kitapEtiketleri}
+      <span class="tag ${hepsiGonderildi?'g':''}">${hepsiGonderildi?'✓ Hazırlandı':'Bekliyor'}</span>
+    </div>
+    <div class="acts" style="margin-top:11px">${onayButonu}</div>
+  </article>`;
 }
 
 /* ---------- Yazar Etkinlikleri ---------- */
@@ -2893,8 +2937,12 @@ async function secimDepoyaBildir(hesapId){
   if(!confirm(`"${h?h.ad:'Bu okul'}" için aşağıdaki kitaplar depoya SİPARİŞ olarak bildirilecek:\n\n${ozet}\n\nOnaylıyor musun?`)) return false;
 
   const tarih=new Date().toISOString().slice(0,10);
+  // Okul adına ilçe de eklenir — depoda aynı isimli şubeler ("doğa koleji"
+  // Beşiktaş / Bayrampaşa) ayırt edilebilsin. Depoya Bildir sekmesindeki
+  // öneri listesi de aynı biçimi kullanıyor, iki kaynak tutarlı olsun.
+  const depoOkulAdi = h ? (h.ad + ((h.ilce||h.il) ? ` — ${h.ilce||h.il}` : '')) : '';
   const yeniler=bekleyenler.map(s=>({
-    id:yeniId(), okulAdi:(h?h.ad:''), kitapId:s.kitapId, tarih,
+    id:yeniId(), okulAdi:depoOkulAdi, kitapId:s.kitapId, tarih,
     gonderildi:false, olusturan:ben, kaynakZiyaretId:null,
     adet:s.adet, tur:'Sipariş'
   }));
@@ -2923,8 +2971,6 @@ async function secimDepoyaBildir(hesapId){
 }
 function secimCiz(){
   // Serbest arama; okul adı/ilçesi, kitap adı, yazar, dönem ve not üzerinde çalışır.
-  // Eski "okula göre filtrele" kutusunun yerini aldı — hem daha az yer kaplıyor
-  // hem de kitap adına göre de arama yapılabiliyor.
   const aramaEl=document.getElementById('secimAra');
   const q = aramaEl ? norm(aramaEl.value.trim()) : '';
   let s=[...secimler].sort((a,b)=>b.tarih.localeCompare(a.tarih));
@@ -2942,7 +2988,35 @@ function secimCiz(){
   if(sayiEl) sayiEl.textContent=s.length;
   secimKlasorUygula();
   secimBekleyenlerCiz();
-  secilenListe.innerHTML = s.length ? s.map(kayit=>{
+
+  // Depoya bildirilmiş kayıtlar ("operasyon bitti") arşiv klasörüne iner.
+  // Arama yapılıyorsa ayrım kaldırılır — aranan kayıt nerede olursa olsun bulunsun.
+  const bekleyen = q ? s : s.filter(x=>!x.depoyaBildirildi);
+  const tamamlanan = q ? [] : s.filter(x=>x.depoyaBildirildi);
+
+  secilenListe.innerHTML = bekleyen.length
+    ? bekleyen.map(secimKartiHtml).join('')
+    : (q
+        ? `<div class="empty"><b>Eşleşen kayıt yok</b><p>Aramayı kısaltmayı dene.</p></div>`
+        : (s.length
+            ? `<div class="empty"><b>Bekleyen kayıt yok</b><p>Depoya bildirilmiş kayıtlar aşağıdaki klasörde.</p></div>`
+            : `<div class="empty"><b>Henüz kayıt yok</b><p>"Kayıt ekle" ile bir okula gönderilen kitapları kaydet.</p></div>`));
+
+  const arsivKap=document.getElementById('secimArsiv');
+  if(arsivKap){
+    arsivKap.innerHTML = tamamlanan.length ? `
+      <div class="klasor${secimArsivAcik?' acik':''}" onclick="secimArsivToggle()">
+        <span class="klasor-ok">▸</span>
+        <span class="klasor-ad">Depoya bildirilenler</span>
+        <span class="klasor-sayi">${tamamlanan.length}</span>
+      </div>
+      <div style="display:${secimArsivAcik?'block':'none'}">
+        ${tamamlanan.map(secimKartiHtml).join('')}
+      </div>` : '';
+  }
+}
+function secimArsivToggle(){ secimArsivAcik=!secimArsivAcik; secimCiz(); }
+function secimKartiHtml(kayit){
     const k=KITAPLAR.find(x=>x.id===kayit.kitapId);
     const h=hesaplar.find(x=>x.id===kayit.hesapId);
     const tarihIpucu=tarihFormatla(kayit.tarih,true);
@@ -2982,10 +3056,7 @@ function secimCiz(){
       </div>
       ${detay}
     </article>`;
-  }).join('') : (q
-    ? `<div class="empty"><b>Eşleşen kayıt yok</b><p>Aramayı kısaltmayı dene.</p></div>`
-    : `<div class="empty"><b>Henüz kayıt yok</b><p>"Kayıt ekle" ile bir okula gönderilen kitapları kaydet.</p></div>`);
-}
+  }
 async function secimAlanKaydet(id, alan, deger){
   secimler = secimler.map(s=>s.id===id?{...s,[alan]:deger}:s);
   await yaz('secimler', secimler);
@@ -3224,7 +3295,7 @@ function ayarCiz(){
 async function kullaniciEmailDegistir(i){
   const isim=kullanicilar[i];
   const mevcut=kullaniciEmailleri[isim]||'';
-  const yeni=prompt(`"${isim}" hangi e-posta ile giriş yapacak?\n\nNOT: Bu yalnızca e-posta–isim eşleştirmesidir.\nGiriş hesabı (şifre) Supabase panelinden ayrıca oluşturulur.`, mevcut);
+  const yeni=prompt(`"${isim}" hangi e-posta ile giriş yapacak?`, mevcut);
   if(yeni===null) return;
   const email=yeni.trim();
   const onceki={...kullaniciEmailleri};
@@ -3288,7 +3359,7 @@ async function kullaniciDuzenle(i){
 }
 async function kullaniciSil(i){
   if(kullanicilar.length<2){ alert('En az bir kullanıcı kalmalı.'); return; }
-  if(!confirm(`"${kullanicilar[i]}" silinecek. Yazdığı ziyaretler silinmez, kaydeden adı olduğu gibi kalır.\n\nNot: Bu işlem kişinin Supabase'deki giriş hesabını SİLMEZ — onu Supabase panelinden ayrıca silmen gerekir.`))return;
+  if(!confirm(`"${kullanicilar[i]}" silinecek. Yazdığı ziyaretler silinmez, kaydeden adı olduğu gibi kalır.`))return;
   const isim=kullanicilar[i];
   kullanicilar.splice(i,1); await yaz('kullanicilar',kullanicilar);
   if(kullaniciRolleri[isim]!==undefined){ delete kullaniciRolleri[isim]; await yaz('kullaniciRolleri',kullaniciRolleri); }
@@ -3338,7 +3409,7 @@ function yedekYukle(input){
     try{ p=JSON.parse(r.result); }
     catch(e){ alert('Dosya okunamadı. Bu bir yedek dosyası değil gibi görünüyor.'); input.value=''; return; }
     if(!p || !Array.isArray(p.katalog)){ alert('Yedek dosyası eksik ya da bozuk.'); input.value=''; return; }
-    if(!confirm(`Yedekteki veri yüklenecek ve şu anki veriler değişecek — herkesin ortak Supabase veritabanında.\n\nYedek tarihi: ${p.tarih?p.tarih.slice(0,10):'bilinmiyor'}\n${p.katalog.length} kitap, ${(p.hesaplar||[]).length} hesap, ${(p.ziyaretler||[]).length} ziyaret\n\nDevam edilsin mi?`)){ input.value=''; return; }
+    if(!confirm(`Yedekteki veri yüklenecek ve şu anki veriler değişecek — herkesin ortak veritabanında.\n\nYedek tarihi: ${p.tarih?p.tarih.slice(0,10):'bilinmiyor'}\n${p.katalog.length} kitap, ${(p.hesaplar||[]).length} hesap, ${(p.ziyaretler||[]).length} ziyaret\n\nDevam edilsin mi?`)){ input.value=''; return; }
     // açık formları kapat, düzenleme durumlarını sıfırla — yanlış kayıt güncellemesini önle
     kapat('hForm'); kapat('kForm'); kapat('zForm'); kapat('kisiForm'); kapat('secimForm');
     duzenlenenHesap=null; duzenlenenKitap=null; duzenlenenZiyaret=null; duzenlenenKisi=null; kisiHesapId=null;
@@ -3361,7 +3432,7 @@ function yedekYukle(input){
   r.readAsText(f);
 }
 async function hepsiniSil(){
-  if(!confirm('Hesaplar, kişiler, ziyaretler, seçilen kayıtlar, depo bildirimleri ve yazar etkinlikleri silinecek — herkesin ortak Supabase veritabanından.\n\nKATALOG, kullanıcılar ve hesap türleri SİLİNMEZ.\n\nÖnce yedek aldın mı?'))return;
+  if(!confirm('Hesaplar, kişiler, ziyaretler, seçilen kayıtlar, depo bildirimleri ve yazar etkinlikleri silinecek — herkesin ortak veritabanından.\n\nKATALOG, kullanıcılar ve hesap türleri SİLİNMEZ.\n\nÖnce yedek aldın mı?'))return;
   if(!confirm('Son onay: bu işlem geri alınamaz.'))return;
   try{
     // Sadece işlem kayıtları silinir. Katalog (kitaplar), kullanıcılar, roller,
@@ -3416,16 +3487,7 @@ document.addEventListener('click', e=>{
 
 /* ---------- açılış ---------- */
 temaDegistir(localStorage.getItem('fom_tema') || ''); // sayfa yüklenir yüklenmez, event beklemeden uygula
-uygulamayiBaslat().then(async ()=>{
-  // Tarayıcıda geçerli bir Supabase oturumu varsa doğrudan içeri al —
-  // her açılışta tekrar şifre girmek gerekmesin.
-  try{
-    const {data:{session}} = await db.auth.getSession();
-    if(session && session.user && session.user.email){
-      gir(emailIsmiBul(session.user.email) || session.user.email);
-    }
-  }catch(e){ console.warn('Oturum kontrolü yapılamadı:', e); }
-});
+uygulamayiBaslat();
 </script>
 </body>
 </html>
