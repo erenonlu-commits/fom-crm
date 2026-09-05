@@ -1096,13 +1096,49 @@ function yazarEtkinligiToDB(e){ return {id:e.id, etkinlik_turu:e.etkinlikTuru||n
    üstü SESSİZCE kırpılır — hata verilmez. Ayrıca .order() belirtilmezse dönen
    satırların hangileri olduğu belirsizdir ve veritabanı işlemlerinden sonra
    değişebilir. Bu yüzden burada hem sıralama hem sayfalama zorunlu tutuluyor. */
+/* ---------- geçici hatalarda yeniden deneme ----------
+   Supabase tarafında ara sıra kısa süreli hatalar oluşuyor. En sık görüleni
+   "JWT issued at future": sunucunun saat önbelleği bir an geride kalınca,
+   yeni üretilmiş oturum anahtarı "gelecekten gelmiş" sayılıp reddediliyor.
+   Bu bilinen bir platform sorunu, kalıcı bir arıza değil — kısa bir bekleyişten
+   sonra tekrar denemek çözüyor. Kullanıcı hiçbir şey fark etmesin diye
+   sessizce, artan aralıklarla tekrar deniyoruz. */
+function geciciHataMi(e){
+  const m = String((e && (e.message || e.error_description || e.details)) || e || '').toLowerCase();
+  return m.includes('issued at future')
+      || m.includes('jwt expired')
+      || m.includes('pgrst301') || m.includes('pgrst303')
+      || m.includes('failed to fetch')
+      || m.includes('networkerror')
+      || m.includes('load failed')
+      || m.includes('fetch failed');
+}
+async function yenidenDene(islem, kere=3){
+  let sonHata;
+  for(let i=0; i<kere; i++){
+    try{ return await islem(); }
+    catch(e){
+      sonHata=e;
+      if(!geciciHataMi(e) || i===kere-1) throw e;
+      console.warn(`Geçici hata, yeniden deneniyor (${i+1}/${kere-1}):`, e.message||e);
+      // Oturum anahtarıyla ilgili bir hataysa önce anahtarı tazelemeyi dene
+      try{ await db.auth.refreshSession(); }catch(_){}
+      await new Promise(r=>setTimeout(r, 700*(i+1)));
+    }
+  }
+  throw sonHata;
+}
 async function tumSatirlariCek(tablo, siraSutunu='id'){
   const SAYFA=1000;
   let hepsi=[], sayfa=0;
   while(true){
-    const {data,error} = await db.from(tablo).select('*')
-      .order(siraSutunu, {ascending:true})
-      .range(sayfa*SAYFA, (sayfa+1)*SAYFA-1);
+    const {data,error} = await yenidenDene(async ()=>{
+      const s = await db.from(tablo).select('*')
+        .order(siraSutunu, {ascending:true})
+        .range(sayfa*SAYFA, (sayfa+1)*SAYFA-1);
+      if(s.error) throw s.error;
+      return s;
+    });
     if(error) throw error;
     hepsi=hepsi.concat(data||[]);
     if(!data || data.length<SAYFA) break;
@@ -1144,12 +1180,16 @@ async function tabloSenkronize(tablo, dizi, toDB, idAlani='id'){
       if(imzalar.get(x.id)!==JSON.stringify(satir)) yazilacaklar.push(satir);
     });
     if(silinecekler.length){
-      const {error:e2} = await db.from(tablo).delete().in(idAlani, silinecekler);
-      if(e2) throw e2;
+      await yenidenDene(async ()=>{
+        const {error} = await db.from(tablo).delete().in(idAlani, silinecekler);
+        if(error) throw error;
+      });
     }
     if(yazilacaklar.length){
-      const {error:e3} = await db.from(tablo).upsert(yazilacaklar);
-      if(e3) throw e3;
+      await yenidenDene(async ()=>{
+        const {error} = await db.from(tablo).upsert(yazilacaklar);
+        if(error) throw error;
+      });
     }
     imzalariKur(tablo, dizi, toDB);
     return true;
@@ -1346,6 +1386,9 @@ async function verileriYukle(){
 /* Giriş doğrulandıktan sonra: önce veriyi çek (roller ancak şimdi okunabilir),
    sonra arayüzü aç. */
 async function girisSonrasi(email){
+  // Not: yeniden deneme, her ağ isteğinin kendi içinde yapılıyor (tumSatirlariCek
+  // ve tabloSenkronize). Buraya bir katman daha eklersek denemeler çarpılır ve
+  // kullanıcı gereksiz uzun bekler.
   await verileriYukle();
   yukleniyor.style.display='none';
   gate.style.display='none';
@@ -1370,7 +1413,12 @@ async function uygulamayiBaslat(){
   }catch(e){
     console.error('Başlatma hatası:', e);
     const detay = (e && (e.message || e.error_description || e.hint || e.details)) || JSON.stringify(e) || String(e);
-    yukleniyorMetin.innerHTML = 'Bağlanılamadı.<br><br><span style="font-size:12px;color:var(--warn);word-break:break-word">'+esc(String(detay))+'</span><br><br>İnternet bağlantını kontrol edip sayfayı yenile.';
+    // Otomatik denemeler de yetmediyse kullanıcıya tek tuşla tekrar deneme sun —
+    // sayfayı elle yenilemek zorunda kalmasın.
+    yukleniyorMetin.innerHTML =
+      'Bağlanılamadı.<br><br>'
+      + '<span style="font-size:12px;color:var(--warn);word-break:break-word">'+esc(String(detay))+'</span><br><br>'
+      + '<button class="btn" onclick="location.reload()">Tekrar dene</button>';
   }
 }
 
@@ -1396,7 +1444,13 @@ async function girisYap(){
   }
   girisButon.disabled=true; girisButon.textContent='Giriş yapılıyor…';
   try{
-    const {error} = await db.auth.signInWithPassword({email, password:sifre});
+    const {error} = await yenidenDene(async ()=>{
+      const s = await db.auth.signInWithPassword({email, password:sifre});
+      // Şifre hatası kalıcıdır, yeniden denemeye gerek yok; sadece geçici
+      // sunucu hatalarında tekrar denensin diye ayırt ediyoruz.
+      if(s.error && geciciHataMi(s.error)) throw s.error;
+      return s;
+    });
     if(error){
       girisHata.textContent='Giriş başarısız — e-posta ya da şifre hatalı olabilir.';
       girisHata.style.display='block';
