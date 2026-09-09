@@ -1401,12 +1401,10 @@ async function uygulamayiBaslat(){
     if(session && session.user && session.user.email){
       await girisSonrasi(session.user.email);
     }else{
-      // Henüz giriş yok. Sadece e-posta eşleştirmesi okunur (o tabloda RLS kapalı)
-      // — giriş anında e-postayı isme çevirebilmek için gerekiyor.
-      try{
-        const {data} = await db.from('kullanici_emailleri').select('*');
-        kullaniciEmailleri = {}; (data||[]).forEach(r=>{ kullaniciEmailleri[r.kullanici_ad]=r.email; });
-      }catch(e){ kullaniciEmailleri = {}; }
+      // Henüz giriş yok — hiçbir tablo okunmuyor. E-posta/isim eşleştirmesi
+      // giriş yapıldıktan sonra verileriYukle() ile çekiliyor, isim çözümü de
+      // ondan sonra yapılıyor. Böylece giriş öncesi hiçbir veri açıkta kalmıyor.
+      kullaniciEmailleri = {};
       yukleniyor.style.display='none';
       gate.style.display='';
     }
