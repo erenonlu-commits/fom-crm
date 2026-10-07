@@ -1028,7 +1028,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:0}
 
       <div class="panel">
         <h3>Yedekleme</h3>
-        <p class="lede" style="margin:-8px 0 12px">Veriler bu tarayıcıda saklanıyor. Düzenli yedek al.</p>
+        <p class="lede" style="margin:-8px 0 12px">Veriler ortak veritabanında saklanıyor. Düzenli aralıklarla yedek indirip bilgisayarında sakla.</p>
         <div id="ozet" class="tags" style="margin-bottom:14px"></div>
         <div class="acts">
           <button class="btn" onclick="yedekIndir()">Yedek indir</button>
@@ -1390,9 +1390,33 @@ async function girisSonrasi(email){
   // ve tabloSenkronize). Buraya bir katman daha eklersek denemeler çarpılır ve
   // kullanıcı gereksiz uzun bekler.
   await verileriYukle();
+
+  // Kullanıcı listesi hiç okunamadıysa (ağ/izin sorunu) kimseyi "tanımsız" sayıp
+  // dışarı atmayız — sorunun geçici olduğunu söyleyip tekrar denetiriz.
+  if(!Object.keys(kullaniciEmailleri).length){
+    yukleniyorMetin.innerHTML = 'Kullanıcı listesi okunamadı.<br><br>'
+      + '<button class="btn" onclick="location.reload()">Tekrar dene</button>';
+    yukleniyor.style.display='';
+    gate.style.display='none';
+    return;
+  }
+
+  // E-postası listede olmayan biri, Supabase'de hesabı olsa bile içeri alınmaz.
+  // (Eskiden böyle biri e-postasıyla "tam yetkili" olarak giriyordu — rol bulunamayınca
+  // varsayılan "tam" sayıldığı için. Yetki sorusunda şüphede kapıyı kapalı tutarız.)
+  const isim = emailIsmiBul(email);
+  if(!isim){
+    try{ await db.auth.signOut(); }catch(e){}
+    yukleniyor.style.display='none';
+    gate.style.display='';
+    girisHata.textContent = 'Hesabınız sistemde tanımlı değil. Lütfen yöneticiye başvurun.';
+    girisHata.style.display='block';
+    return;
+  }
+
   yukleniyor.style.display='none';
   gate.style.display='none';
-  gir(emailIsmiBul(email) || email);
+  gir(isim);
 }
 
 async function uygulamayiBaslat(){
@@ -3014,29 +3038,52 @@ async function secimDepoyaBildir(hesapId){
   const depoOkulAdi = h ? (h.ad + ((h.ilce||h.il) ? ` — ${h.ilce||h.il}` : '')) : '';
   const yeniler=bekleyenler.map(s=>({
     id:yeniId(), okulAdi:depoOkulAdi, kitapId:s.kitapId, tarih,
-    gonderildi:false, olusturan:ben, kaynakZiyaretId:null,
-    adet:s.adet, tur:'Sipariş'
+    olusturan:ben, adet:s.adet, tur:'Sipariş'
   }));
-  depoBildirimleri.push(...yeniler);
-  const bildirimOk=await yaz('depoBildirimleri', depoBildirimleri);
-  if(!bildirimOk){
-    const idler=new Set(yeniler.map(x=>x.id));
-    depoBildirimleri=depoBildirimleri.filter(d=>!idler.has(d.id));
+  const bekleyenIdler=bekleyenler.map(s=>s.id);
+
+  // Depo kaydı ekleme VE seçimi "bildirildi" işaretleme, artık sunucuda TEK bir
+  // veritabanı işlemi (RPC/transaction) olarak yapılıyor. İkinci adım başarısız
+  // olsa bile ilk adım geri alınır — sunucu tarafında "yarım kalmış" bir durum
+  // artık oluşamaz. (Önceki halde bu iki ayrı yazma idi; ikincisi başarısız
+  // olursa depo kaydı kalıcı yazılmış ama seçim işaretsiz kalabiliyordu.)
+  let calisti=false, sonHata=null;
+  try{
+    await yenidenDene(async ()=>{
+      const s = await db.rpc('secim_depoya_bildir', {
+        p_secim_idler: bekleyenIdler,
+        p_depo_kayitlari: yeniler,
+      });
+      if(s.error) throw s.error;
+      calisti=true;
+    });
+  }catch(e){ sonHata=e; }
+
+  if(!calisti){
+    console.error('secim_depoya_bildir RPC hatası:', sonHata);
+    const mesaj = String((sonHata&&sonHata.message)||sonHata||'');
+    // Sunucu "bu seçimler zaten bildirilmiş ya da silinmiş" dedi: başka biri bildirmiş
+    // ya da buton iki kez basılmış olabilir. Tekrar denemek yerine güncel durumu çekip göster.
+    if(mesaj.includes('SECIM_DEGISMIS')){
+      alert('Bu kayıtların durumu değişmiş görünüyor — başka biri bildirmiş ya da silmiş olabilir.\n\nListe güncelleniyor, lütfen tekrar kontrol et.');
+      await veriTazele(['secimler','depoBildirimleri']);
+      secimCiz(); depoCiz();
+      return false;
+    }
+    alert('Depoya bildirilemedi. İnternet bağlantını kontrol edip tekrar dene.\n\nDetay: '+((sonHata&&sonHata.message)||sonHata));
     return false;
   }
-  // Bildirim yazıldı; şimdi seçimleri "bildirildi" olarak işaretle.
-  // Bu adım başarısız olursa bildirim depoda DURUYOR ama kayıtlar işaretsiz kalır —
-  // kullanıcı tekrar gönderirse mükerrer sipariş oluşur, o yüzden net uyarıyoruz.
-  const bekleyenIdler=new Set(bekleyenler.map(s=>s.id));
-  const oncekiSecimler=[...secimler];
-  secimler=secimler.map(s=>bekleyenIdler.has(s.id)?{...s, depoyaBildirildi:true}:s);
-  const isaretOk=await yaz('secimler', secimler);
-  if(!isaretOk){
-    secimler=oncekiSecimler;
-    alert('Kitaplar depoya bildirildi, ancak kayıtlar "bildirildi" olarak işaretlenemedi.\n\nTekrar "Depoya bildir" deme — aynı sipariş iki kez gider. Sayfayı yenileyip kontrol et.');
-    secimCiz();
-    return false;
-  }
+
+  // Sunucu güncellendi; yerel (ekrandaki) veriyi de aynı şekilde yansıt.
+  depoBildirimleri.push(...yeniler.map(y=>({...y, gonderildi:false, kaynakZiyaretId:null})));
+  const idSet=new Set(bekleyenIdler);
+  secimler=secimler.map(s=>idSet.has(s.id)?{...s, depoyaBildirildi:true}:s);
+  // "Sadece değişeni gönder" mekanizması, sunucudaki son halin bir imzasını
+  // tutuyor. Buradaki yazma RPC ile (tabloSenkronize'yi atlayarak) yapıldığı
+  // için, imzaları burada elle güncellemezsek bir sonraki normal kayıtta
+  // yanlış karşılaştırma yapılabilir.
+  imzalariKur('secimler', secimler, secimToDB);
+  imzalariKur('depo_bildirimleri', depoBildirimleri, depoBildirimiToDB);
   secimCiz();
   return true;
 }
@@ -3108,7 +3155,9 @@ function secimKartiHtml(kayit){
         <div class="f" style="margin:0">
           <label style="font-size:12px">Adet</label>
           <input type="number" min="0" inputmode="numeric" value="${kayit.adet==null?'':kayit.adet}" placeholder="—"
+            ${kayit.depoyaBildirildi?'disabled title="Depoya bildirildi — adet değiştirilemez"':''}
             onchange="secimAlanKaydet(${kayit.id},'adet',this.value===''?null:Number(this.value))">
+          ${kayit.depoyaBildirildi?'<div style="font-size:11.5px;color:var(--ink-soft);margin-top:4px">Depoya bildirildi, adet kilitli</div>':''}
         </div>
       </div>
       <textarea placeholder="Not…" style="margin-top:12px;min-height:60px"
@@ -3129,6 +3178,9 @@ function secimKartiHtml(kayit){
     </article>`;
   }
 async function secimAlanKaydet(id, alan, deger){
+  // Depoya bildirilmiş kaydın adedi değişirse depodaki kayıtla tutarsızlık doğar.
+  const mevcut = secimler.find(s=>s.id===id);
+  if(mevcut && mevcut.depoyaBildirildi && alan==='adet'){ secimCiz(); return; }
   secimler = secimler.map(s=>s.id===id?{...s,[alan]:deger}:s);
   await yaz('secimler', secimler);
 }
@@ -3462,9 +3514,11 @@ async function hesapTuruSil(i){
 /* ---------- yedekleme ---------- */
 function yedekIndir(){
   const paket={
-    surum:1, tarih:new Date().toISOString(),
+    surum:2, tarih:new Date().toISOString(),
     katalog:KITAPLAR.map(({_s,...r})=>r),
-    hesaplar, ziyaretler, secimler, kullanicilar, kullaniciRolleri, hesapTurleri
+    hesaplar, ziyaretler, secimler, kullanicilar, kullaniciRolleri, hesapTurleri,
+    // surum 2 ile eklendi — "sıfırla" bu verileri de sildiği için yedek de içermeli
+    depoBildirimleri, yazarEtkinlikleri, kullaniciEmailleri
   };
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([JSON.stringify(paket,null,1)],{type:'application/json'}));
@@ -3491,11 +3545,21 @@ function yedekYukle(input){
     kullanicilar=p.kullanicilar||['Pelin','Ömer'];
     kullaniciRolleri=p.kullaniciRolleri||{};
     hesapTurleri=p.hesapTurleri||hesapTurleri;
-    yukleniyorMetin.textContent='Yedek Supabase\'e yükleniyor…'; yukleniyor.style.display='';
+    // surum 1 yedeklerinde bu üç alan yok — o durumda mevcut veriyi silmeyiz.
+    const depoVar = Array.isArray(p.depoBildirimleri);
+    const etkinlikVar = Array.isArray(p.yazarEtkinlikleri);
+    const emailVar = p.kullaniciEmailleri && typeof p.kullaniciEmailleri==='object';
+    if(depoVar) depoBildirimleri=p.depoBildirimleri;
+    if(etkinlikVar) yazarEtkinlikleri=p.yazarEtkinlikleri;
+    if(emailVar) kullaniciEmailleri=p.kullaniciEmailleri;
+    yukleniyorMetin.textContent='Yedek yükleniyor…'; yukleniyor.style.display='';
     await katalogKaydet();
     await yaz('hesaplar',hesaplar); await yaz('ziyaretler',ziyaretler); await yaz('secimler',secimler);
     await yaz('kullanicilar',kullanicilar); await yaz('kullaniciRolleri',kullaniciRolleri);
     await yaz('hesapTurleri',hesapTurleri);
+    if(depoVar) await yaz('depoBildirimleri',depoBildirimleri);
+    if(etkinlikVar) await yaz('yazarEtkinlikleri',yazarEtkinlikleri);
+    if(emailVar) await yaz('kullaniciEmailleri',kullaniciEmailleri);
     yukleniyor.style.display='none';
     input.value=''; girisCiz(); kur(); hesapCiz(); ziyaretCiz(); secimCiz(); ayarCiz();
     alert('Yedek yüklendi.');
